@@ -1,0 +1,8 @@
+target/
+*.dot
+consumer.log
+producer.log
+gst-plugins/
+*.venv
+keys/
+.env

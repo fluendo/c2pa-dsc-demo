@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  server:
+    build: .
+    image: c2pa-dsc-live-demo
+    container_name: dsc-server
+    network_mode: host
+    ipc: host
+    privileged: true
+    command: >-
+      --server-only
+      --whip-server http://0.0.0.0:8190
+      --whep-server http://0.0.0.0:8191
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp:/tmp:rw
+
+  source:
+    build: .
+    image: c2pa-dsc-live-demo
+    container_name: dsc-source
+    network_mode: host
+    ipc: host
+    privileged: true
+    command: >-
+      --source-only
+      --whip-server http://127.0.0.1:8190
+      --manifest-host 127.0.0.1:8765
+      --camera-device /dev/video0
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp:/tmp:rw
+    devices:
+      - /dev/video0:/dev/video0
+    depends_on:
+      - server
+
+  player:
+    build: .
+    image: c2pa-dsc-live-demo
+    container_name: dsc-player
+    network_mode: host
+    ipc: host
+    privileged: true
+    command: >-
+      --player-only
+      --whep-server http://127.0.0.1:8191
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp:/tmp:rw
+    depends_on:
+      - server

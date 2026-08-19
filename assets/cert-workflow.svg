@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 780" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arrGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#10b981"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1160" height="780" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="580" y="34" text-anchor="middle" font-size="21" font-weight="700" fill="#1f2937">
+    C2PA + DSC Live Demo — Simplified Workflow
+  </text>
+
+  <!-- ============ LAPTOP 1 ============ -->
+  <rect x="20" y="52" width="520" height="648" rx="16" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="280" y="82" text-anchor="middle" font-size="15" font-weight="700" fill="#1d4ed8">
+    &#x1F5A5;&#xFE0F; LAPTOP 1 — SOURCE + SERVER
+  </text>
+
+  <!-- Source box -->
+  <rect x="40" y="112" width="480" height="210" rx="12" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="56" y="141" font-size="13" font-weight="700" fill="#1d4ed8">SOURCE — capture + sign</text>
+  <line x1="40" y1="153" x2="520" y2="153" stroke="#bfdbfe" stroke-width="1"/>
+
+  <rect x="62" y="178" width="100" height="56" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="112" y="202" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Camera</text>
+  <text x="112" y="218" text-anchor="middle" font-size="11" fill="#475569">v4l2src</text>
+
+  <rect x="188" y="178" width="104" height="56" rx="8" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="240" y="202" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">AI</text>
+  <text x="240" y="218" text-anchor="middle" font-size="11" fill="#475569">(optional)</text>
+
+  <rect x="318" y="168" width="180" height="76" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="408" y="196" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">C2PA + DSC</text>
+  <text x="408" y="214" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">Signer</text>
+  <text x="408" y="232" text-anchor="middle" font-size="10.5" fill="#92400e">provider.key</text>
+
+  <line x1="162" y1="206" x2="188" y2="206" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
+  <line x1="292" y1="206" x2="318" y2="206" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
+
+  <text x="280" y="286" text-anchor="middle" font-size="11.5" fill="#475569">signs every GOP &#183; embeds provider.crt</text>
+  <text x="280" y="304" text-anchor="middle" font-size="11.5" fill="#475569">content-uuid = UUID v4 (unique per session)</text>
+
+  <!-- WHIP arrow -->
+  <line x1="280" y1="322" x2="280" y2="364" stroke="#2563eb" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <text x="294" y="348" font-size="11.5" font-weight="700" fill="#2563eb">WHIP :8190</text>
+
+  <!-- Server box -->
+  <rect x="40" y="364" width="480" height="286" rx="12" fill="#faf8ff" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="56" y="393" font-size="13" font-weight="700" fill="#6d28d9">SERVER — WHIP &#8596; WHEP bridge</text>
+  <line x1="40" y1="405" x2="520" y2="405" stroke="#ddd6fe" stroke-width="1"/>
+
+  <text x="280" y="436" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">whipserversrc &#8594; whepserversink</text>
+  <text x="280" y="456" text-anchor="middle" font-size="11.5" fill="#6b7280">H.265 + opus pass-through (no re-encode)</text>
+  <text x="280" y="486" text-anchor="middle" font-size="12" fill="#4c1d95">HTTP :8765 — serves /certs/ + C2PA manifests</text>
+
+  <rect x="62" y="510" width="200" height="60" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="162" y="537" text-anchor="middle" font-size="12.5" font-weight="700" fill="#b91c1c">t — bitstream tamper</text>
+  <text x="162" y="555" text-anchor="middle" font-size="11" fill="#b91c1c">(live toggle)</text>
+
+  <rect x="298" y="510" width="200" height="60" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="398" y="537" text-anchor="middle" font-size="12.5" font-weight="700" fill="#b91c1c">m — manifest swap</text>
+  <text x="398" y="555" text-anchor="middle" font-size="11" fill="#b91c1c">(live toggle)</text>
+
+  <text x="280" y="620" text-anchor="middle" font-size="11" fill="#8b5cf6">media path: source &#8594; WHIP &#8594; server &#8594; WHEP &#8594; player</text>
+
+  <!-- ============ LAPTOP 2 ============ -->
+  <rect x="640" y="52" width="500" height="648" rx="16" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+  <text x="890" y="82" text-anchor="middle" font-size="15" font-weight="700" fill="#047857">
+    &#x1F5A5;&#xFE0F; LAPTOP 2 — PLAYER
+  </text>
+
+  <!-- Cert material box -->
+  <rect x="652" y="112" width="476" height="210" rx="12" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.5"/>
+  <text x="668" y="141" font-size="13" font-weight="700" fill="#047857">CERTIFICATE MATERIAL — Laptop 2</text>
+  <line x1="652" y1="153" x2="1128" y2="153" stroke="#bbf7d0" stroke-width="1"/>
+
+  <text x="668" y="184" font-size="12" fill="#1f2937">&#128274; ca.crt — trust root &#183; copied ONCE via scp</text>
+  <text x="668" y="212" font-size="12" fill="#1f2937">provider.crt — signer cert &#183; HTTP :8765/certs/</text>
+  <text x="668" y="240" font-size="12" fill="#1f2937">C2PA manifest &#183; HTTP :8765/ (per GOP)</text>
+
+  <!-- Player box -->
+  <rect x="652" y="364" width="476" height="286" rx="12" fill="#ffffff" stroke="#34d399" stroke-width="1.5"/>
+  <text x="668" y="393" font-size="13" font-weight="700" fill="#047857">PLAYER — verify + display</text>
+  <line x1="652" y1="405" x2="1128" y2="405" stroke="#a7f3d0" stroke-width="1"/>
+
+  <rect x="772" y="420" width="236" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="890" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2937">whepclientsrc (WHEP :8191)</text>
+
+  <line x1="890" y1="458" x2="890" y2="468" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
+
+  <rect x="772" y="468" width="236" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="890" y="492" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2937">H.265 decode (avdec_h265)</text>
+
+  <line x1="890" y1="506" x2="890" y2="516" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
+
+  <rect x="752" y="516" width="276" height="50" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="890" y="539" text-anchor="middle" font-size="13" font-weight="700" fill="#14532d">&#128274; C2PA + DSC Verifier</text>
+  <text x="890" y="557" text-anchor="middle" font-size="11" fill="#14532d">trust store = ca.crt</text>
+
+  <line x1="890" y1="566" x2="890" y2="576" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
+
+  <rect x="772" y="576" width="236" height="38" rx="8" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="890" y="600" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2937">GTK4 display</text>
+
+  <!-- ============ CROSS-LAPTOP LINKS ============ -->
+  <!-- scp (one-time) -->
+  <line x1="520" y1="182" x2="652" y2="182" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrGray)"/>
+  <text x="586" y="174" text-anchor="middle" font-size="11" font-weight="700" fill="#4b5563">scp ca.crt</text>
+
+  <!-- HTTP (per GOP) -->
+  <line x1="520" y1="240" x2="652" y2="240" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrGray)"/>
+  <text x="586" y="232" text-anchor="middle" font-size="11" font-weight="700" fill="#4b5563">HTTP :8765</text>
+
+  <!-- WHEP (media) -->
+  <line x1="520" y1="439" x2="770" y2="439" stroke="#10b981" stroke-width="2" marker-end="url(#arrGreen)"/>
+  <text x="586" y="432" text-anchor="middle" font-size="11.5" font-weight="700" fill="#047857">WHEP :8191</text>
+
+  <!-- Legend -->
+  <text x="580" y="744" text-anchor="middle" font-size="11.5" fill="#6b7280">
+    &#128274; trust anchor (ca.crt) &#183; signing uses provider.key &#183; t / m are live attack toggles
+  </text>
+</svg>

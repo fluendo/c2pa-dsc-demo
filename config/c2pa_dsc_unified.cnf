@@ -1,0 +1,49 @@
+# OpenSSL config for C2PA-compatible certificate generation.
+#
+# Generates a 2-tier CA chain (CA -> end-entity) with the X.509v3
+# extensions required by the c2pa-rs certificate profile:
+#   - Authority Key Identifier (AKI)
+#   - Subject Key Identifier (SKI)
+#   - Extended Key Usage (EKU): emailProtection
+#   - Key Usage: digitalSignature
+#   - Basic Constraints: CA:FALSE (end-entity) / CA:TRUE (CA)
+#   - Minimum RSA key size: 2048 bits
+
+[ req ]
+default_bits        = 2048
+default_md          = sha256
+distinguished_name  = req_distinguished_name
+req_extensions      = v3_req
+x509_extensions     = v3_ca
+string_mask         = utf8only
+prompt              = no
+
+[ req_distinguished_name ]
+C  = ES
+ST = Barcelona
+L  = Barcelona
+O  = Fluendo S.A.
+OU = DSC C2PA Testing
+CN = Fluendo DSC Root CA
+
+[ v3_ca ]
+# Extensions for a CA certificate (self-signed root)
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = critical, CA:TRUE, pathlen:0
+keyUsage               = critical, keyCertSign, cRLSign
+
+[ v3_req ]
+# Extensions for the CSR (request) -- minimal, no issuer-dependent fields
+subjectKeyIdentifier   = hash
+basicConstraints       = critical, CA:FALSE
+keyUsage               = critical, digitalSignature, nonRepudiation
+extendedKeyUsage       = emailProtection
+
+[ v3_end_entity ]
+# Extensions for the signed end-entity certificate (applied during signing)
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = critical, CA:FALSE
+keyUsage               = critical, digitalSignature, nonRepudiation
+extendedKeyUsage       = emailProtection

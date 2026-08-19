@@ -1,0 +1,26 @@
+[package]
+name = "c2pa-dsc-live-demo"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["gtk4"]
+gtk4 = ["dep:gtk", "dep:glib", "dep:gdk"]
+
+[dependencies]
+gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", branch = "main" }
+gst-video = { package = "gstreamer-video", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", branch = "main" }
+gst-app = { package = "gstreamer-app", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", branch = "main" }
+gtk = { package = "gtk4", git = "https://github.com/gtk-rs/gtk4-rs", branch = "main", features = ["v4_6"], optional = true }
+gdk = { package = "gdk4", git = "https://github.com/gtk-rs/gtk4-rs", branch = "main", features = ["v4_4"], optional = true }
+glib = { git = "https://github.com/gtk-rs/gtk-rs-core", branch = "main", optional = true }
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
+anyhow = "1"
+url = "2"
+futures = "0.3"
+ctrlc = "3"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+uuid = { version = "1", features = ["v4"] }
+serde_json = "1"
