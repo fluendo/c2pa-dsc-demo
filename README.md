@@ -125,6 +125,8 @@ docker build -f Dockerfile.base -t c2pa-dsc-base .
 
 # Build the demo image (FROM c2pa-dsc-base:latest)
 docker build -t c2pa-dsc-live-demo .
+# Allow local Docker containers to access the X server for GUI support
+xhost +local:docker
 
 # Run all components
 docker run --rm -it \
