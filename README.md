@@ -120,7 +120,10 @@ cargo run -- --demo-ai-filter
 ## Docker
 
 ```bash
-# Build
+# Build the base image first (GStreamer + DSC/WebRTC/GTK4 plugins)
+docker build -f Dockerfile.base -t c2pa-dsc-base .
+
+# Build the demo image (FROM c2pa-dsc-base:latest)
 docker build -t c2pa-dsc-live-demo .
 
 # Run all components
