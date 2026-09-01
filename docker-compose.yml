@@ -14,6 +14,10 @@ services:
       --whep-server http://0.0.0.0:8191
     environment:
       - DISPLAY=${DISPLAY}
+      - GDK_DEBUG=gl-disable
+      - GSK_RENDERER=cairo
+      - NO_AT_BRIDGE=1
+      - GTK_A11Y=none
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp:/tmp:rw
@@ -28,15 +32,21 @@ services:
     command: >-
       --source-only
       --whip-server http://127.0.0.1:8190
-      --manifest-host 127.0.0.1:8765
-      --camera-device /dev/video0
+      --manifest-host ${SERVER_IP:-127.0.0.1}:8765
+      --camera-device ${CAMERA_DEVICE:-/dev/video0}
     environment:
       - DISPLAY=${DISPLAY}
+      - GDK_DEBUG=gl-disable
+      - GSK_RENDERER=cairo
+      - NO_AT_BRIDGE=1
+      - GTK_A11Y=none
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp:/tmp:rw
+      - /opt/fluendo/fluanonymizer:/opt/fluendo/fluanonymizer:ro
     devices:
-      - /dev/video0:/dev/video0
+      - ${CAMERA_DEVICE:-/dev/video0}:${CAMERA_DEVICE:-/dev/video0}
+      - /dev/dri:/dev/dri
     depends_on:
       - server
 
@@ -49,11 +59,16 @@ services:
     privileged: true
     command: >-
       --player-only
-      --whep-server http://127.0.0.1:8191
+      --certs-dir /tmp/c2pa-certs
+      --whep-server http://${SERVER_IP:-127.0.0.1}:8191
     environment:
       - DISPLAY=${DISPLAY}
+      - GDK_DEBUG=gl-disable
+      - GSK_RENDERER=cairo
+      - NO_AT_BRIDGE=1
+      - GTK_A11Y=none
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp:/tmp:rw
-    depends_on:
-      - server
+    devices:
+      - /dev/dri:/dev/dri

@@ -1,10 +1,13 @@
 use gtk::prelude::*;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use crate::network;
+use crate::server::{start_tamper_cycle, stop_tamper, TamperControl};
 
 pub fn create_server_window(
     app: &gtk::Application,
-    payloader: Arc<Mutex<Option<gst::Element>>>,
+    control: Arc<TamperControl>,
     manifest_state: &Arc<Mutex<bool>>,
     fake_title: &str,
 ) -> gtk::ApplicationWindow {
@@ -96,27 +99,72 @@ pub fn create_server_window(
     container.append(&sec_info);
     container.append(&stream_info);
 
+    // Peers
+    let sec_peers = gtk::Label::builder()
+        .label("Peers")
+        .css_classes(["section-title"])
+        .halign(gtk::Align::Start)
+        .margin_top(16)
+        .build();
+    let peers_info = gtk::Label::builder()
+        .label("Source (WHIP): waiting\nPlayer (WHEP): waiting\nVideo: waiting")
+        .css_classes(["data-label"])
+        .halign(gtk::Align::Start)
+        .build();
+    container.append(&sec_peers);
+    container.append(&peers_info);
+
     window.set_child(Some(&container));
 
-    let p = payloader.clone();
+    {
+        let peers_info = peers_info.clone();
+        let source_connected = control.source_connected.clone();
+        let player_connected = control.player_connected.clone();
+        let last_video = control.last_video.clone();
+        glib::timeout_add_local(Duration::from_millis(500), move || {
+            let source = if source_connected.load(Ordering::SeqCst) {
+                "connected"
+            } else {
+                "waiting"
+            };
+            let player = if player_connected.load(Ordering::SeqCst) {
+                "connected"
+            } else {
+                "waiting"
+            };
+            let flowing = last_video
+                .lock()
+                .unwrap()
+                .map(|t| t.elapsed() < Duration::from_secs(2))
+                .unwrap_or(false);
+            let video = if source == "connected" && player == "connected" && flowing {
+                "flowing (source → player)"
+            } else if flowing {
+                "flowing"
+            } else {
+                "no video"
+            };
+            peers_info.set_label(&format!(
+                "Source (WHIP): {}\nPlayer (WHEP): {}\nVideo: {}",
+                source, player, video
+            ));
+            glib::ControlFlow::Continue
+        });
+    }
+
+    let control = control.clone();
     let ts = tamper_status.clone();
     tamper_switch.connect_state_set(move |_sw, state| {
-        let payloader_guard = p.lock().unwrap();
-        if let Some(ref pay) = *payloader_guard {
-            if state {
-                pay.set_property("config-interval", -1i32);
-                ts.set_label("TAMPERED");
-                eprintln!("\n>>> Tamper ON (switch)");
-            } else {
-                pay.set_property("config-interval", 0i32);
-                ts.set_label("CLEAN");
-                eprintln!("\n>>> Tamper OFF (switch)");
-            }
-            glib::Propagation::Proceed
+        if state {
+            start_tamper_cycle(&control);
+            ts.set_label("TAMPERED (5s)");
+            eprintln!("\n>>> Tamper ON (5s tampered / 5s clear)");
         } else {
-            eprintln!("\n>>> No payloader available yet (wait for WHIP connection)");
-            glib::Propagation::Stop
+            stop_tamper(&control);
+            ts.set_label("CLEAN");
+            eprintln!("\n>>> Tamper OFF (clean stream)");
         }
+        glib::Propagation::Proceed
     });
 
     let m = manifest_state.clone();
