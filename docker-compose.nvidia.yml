@@ -1,0 +1,14 @@
+# NVIDIA GPU passthrough override for the flufaceanonymizer (CUDA backend).
+#
+# Requires nvidia-container-toolkit on the host:
+#   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+#
+# The `gpus` field needs Docker Compose v2 (the `docker compose` plugin):
+#   docker compose -f docker-compose.yml -f docker-compose.nvidia.yml up
+#
+# (Legacy `docker-compose` v1 doesn't support `gpus` — use
+#  `docker run --gpus all ...` instead, or skip this file on non-NVIDIA hosts
+#  where the AI uses the Vulkan/mesa backend via /dev/dri.)
+services:
+  source:
+    gpus: all

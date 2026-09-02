@@ -20,6 +20,12 @@ fn make_whep_src(whep_endpoint: &str) -> Result<gst::Element> {
     src.dynamic_cast_ref::<gst::ChildProxy>()
         .ok_or_else(|| anyhow::anyhow!("whepclientsrc missing ChildProxy"))?
         .set_child_property("signaller::whep-endpoint", whep_endpoint);
+
+    // This demo is H.265-only end to end (the DSC SEI only exists in H.265), and
+    // the player decodes H.265. Constrain the SDP offer to H.265 so the WHEP
+    // server payloads the relayed H.265 as-is instead of transcoding it to VP8.
+    src.set_property("video-codecs", gst::Array::new(["H265"]));
+
     Ok(src)
 }
 
@@ -46,15 +52,31 @@ fn extract_dsc_result(s: &gst::StructureRef) -> Option<DscVerificationResult> {
     if s.name().as_str() != "dsc-c2pa-verification-result" {
         return None;
     }
+    let actions = s.get::<String>("c2pa-actions").unwrap_or_default();
+    let digital_source_type = s.get::<String>("c2pa-digital-source-type").unwrap_or_default();
+    let ai_modified =
+        has_ai_edit(&actions) || digital_source_type.contains("trainedAlgorithmicMedia");
     Some(DscVerificationResult {
         dsc_status: s.get::<String>("dsc-status").unwrap_or_else(|_| "unknown".into()),
         c2pa_status: s.get::<String>("c2pa-status").unwrap_or_else(|_| "unknown".into()),
         manifest_title: s.get::<String>("c2pa-manifest-title").unwrap_or_default(),
         provenance: s.get::<String>("c2pa-provenance").unwrap_or_default(),
-        actions: s.get::<String>("c2pa-actions").unwrap_or_default(),
+        actions,
         claim_generator: s.get::<String>("c2pa-claim-generator").unwrap_or_default(),
-        digital_source_type: s.get::<String>("c2pa-digital-source-type").unwrap_or_default(),
+        digital_source_type,
+        ai_modified,
     })
+}
+
+fn has_ai_edit(actions: &str) -> bool {
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(actions) {
+        if let Some(list) = val.get("actions").and_then(|a| a.as_array()) {
+            return list
+                .iter()
+                .any(|a| a.get("action").and_then(|s| s.as_str()) == Some("c2pa.edited"));
+        }
+    }
+    false
 }
 
 fn link_whep_pads(
@@ -301,7 +323,11 @@ pub fn run_gtk(app: &gtk::Application, whep_endpoint: &str, dsc: &DscConfig) -> 
             Some(msg) => match msg.view() {
                 gst::MessageView::Eos(..) => break,
                 gst::MessageView::Error(err) => {
-                    eprintln!("Player GTK error: {}", err.error());
+                    eprintln!(
+                        "Player GTK error: {} ({})",
+                        err.error(),
+                        err.debug().unwrap_or_default()
+                    );
                     break;
                 }
                 gst::MessageView::Element(element_msg) => {

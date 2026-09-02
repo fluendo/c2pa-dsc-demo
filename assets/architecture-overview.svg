@@ -1,8 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 0 600 750" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto; display: block;" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="660" viewBox="0 0 600 660" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto; display: block;" font-family="Segoe UI, Arial, Helvetica, sans-serif">
   <defs>
-    <marker id="arrGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/>
-    </marker>
     <marker id="arrBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="#2563eb"/>
     </marker>
@@ -11,78 +8,56 @@
     </marker>
   </defs>
 
-  <rect x="60" y="0" width="600" height="750" fill="#ffffff"/>
+  <rect x="0" y="0" width="600" height="660" fill="#ffffff"/>
 
-  <text x="360" y="32" text-anchor="middle" font-size="20" font-weight="700" fill="#1f2937">
+  <text x="300" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#1f2937">
     C2PA + DSC WebRTC demo architecture
   </text>
 
-  <!-- ============ LAPTOP 1 (TOP) ============ -->
-  <rect x="80" y="56" width="560" height="360" rx="16" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
-  <text x="360" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="#1d4ed8">
-    &#x1F5A5;&#xFE0F; LAPTOP 1 — SOURCE + SERVER
-  </text>
+  <!-- ============ LAPTOP GROUPINGS (light / near transparent) ============ -->
+  <rect x="48" y="52" width="504" height="380" rx="16" fill="#fafbfc" stroke="#d8dee6" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="72" y="78" font-size="12" font-weight="700" fill="#94a3b8">LAPTOP 1</text>
 
-  <!-- Source -->
-  <rect x="100" y="106" width="520" height="140" rx="12" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5"/>
-  <text x="116" y="134" font-size="13" font-weight="700" fill="#1d4ed8">SOURCE — capture + sign</text>
-  <line x1="100" y1="146" x2="620" y2="146" stroke="#bfdbfe" stroke-width="1"/>
+  <rect x="48" y="452" width="504" height="180" rx="16" fill="#fafbfc" stroke="#d8dee6" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="72" y="478" font-size="12" font-weight="700" fill="#94a3b8">LAPTOP 2</text>
 
-  <rect x="120" y="170" width="90" height="56" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
-  <text x="165" y="202" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Camera</text>
-
-  <rect x="230" y="170" width="100" height="56" rx="8" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="280" y="196" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">AI</text>
-  <text x="280" y="212" text-anchor="middle" font-size="11" fill="#475569">(optional)</text>
-
-  <rect x="350" y="170" width="130" height="56" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
-  <text x="415" y="195" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">C2PA + DSC</text>
-  <text x="415" y="211" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">Signer</text>
-
-  <line x1="210" y1="198" x2="230" y2="198" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
-  <line x1="330" y1="198" x2="350" y2="198" stroke="#6b7280" stroke-width="2" marker-end="url(#arrGray)"/>
+  <!-- ============ SOURCE ============ -->
+  <rect x="120" y="84" width="360" height="130" rx="14" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="300" y="114" text-anchor="middle" font-size="16" font-weight="700" fill="#1d4ed8">SOURCE</text>
+  <line x1="144" y1="126" x2="456" y2="126" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="300" y="154" text-anchor="middle" font-size="13.5" fill="#334155">Remote camera</text>
+  <text x="300" y="176" text-anchor="middle" font-size="13.5" fill="#334155">reporter (iPhone)</text>
+  <text x="300" y="200" text-anchor="middle" font-size="11.5" fill="#64748b">captures + signs</text>
 
   <!-- WHIP arrow -->
-  <line x1="360" y1="246" x2="360" y2="296" stroke="#2563eb" stroke-width="2" marker-end="url(#arrBlue)"/>
-  <text x="376" y="276" font-size="12" font-weight="700" fill="#2563eb">WHIP</text>
+  <line x1="300" y1="214" x2="300" y2="258" stroke="#2563eb" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <text x="316" y="240" font-size="12" font-weight="700" fill="#2563eb">WHIP</text>
 
-  <!-- Server -->
-  <rect x="100" y="296" width="520" height="116" rx="12" fill="#faf8ff" stroke="#a78bfa" stroke-width="1.5"/>
-  <text x="116" y="326" font-size="13" font-weight="700" fill="#6d28d9">SERVER — WHIP &#8596; WHEP bridge</text>
-  <line x1="100" y1="338" x2="620" y2="338" stroke="#ddd6fe" stroke-width="1"/>
-  <text x="116" y="370" font-size="12.5" fill="#4c1d95">Forwards the signed stream unchanged</text>
-  <text x="116" y="392" font-size="12.5" font-weight="700" fill="#b91c1c">Live attack toggles: tamper &#183; manifest swap</text>
+  <!-- ============ SERVER ============ -->
+  <rect x="120" y="258" width="360" height="150" rx="14" fill="#ffffff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="300" y="288" text-anchor="middle" font-size="16" font-weight="700" fill="#6d28d9">SERVER</text>
+  <line x1="144" y1="300" x2="456" y2="300" stroke="#ddd6fe" stroke-width="1.5"/>
+  <text x="300" y="326" text-anchor="middle" font-size="13.5" fill="#334155">streaming bridge</text>
 
-  <!-- ============ LAPTOP 2 (BOTTOM) ============ -->
-  <rect x="80" y="472" width="560" height="240" rx="16" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
-  <text x="360" y="502" text-anchor="middle" font-size="14" font-weight="700" fill="#047857">
-    &#x1F5A5;&#xFE0F; LAPTOP 2 — PLAYER
-  </text>
+  <rect x="250" y="338" width="100" height="28" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+  <text x="300" y="357" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">WHIP in</text>
 
-  <!-- Trust anchor -->
-  <rect x="100" y="522" width="200" height="140" rx="12" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="116" y="552" font-size="13" font-weight="700" fill="#047857">&#128274; Trust anchor</text>
-  <line x1="100" y1="564" x2="300" y2="564" stroke="#bbf7d0" stroke-width="1"/>
-  <text x="116" y="592" font-size="12.5" font-weight="700" fill="#14532d">CA certificate</text>
-  <text x="116" y="610" font-size="11.5" fill="#1f2937">(vouches for the signer)</text>
-  <text x="116" y="630" font-size="11.5" fill="#475569">Shared from Laptop 1 (one-time)</text>
+  <rect x="250" y="372" width="100" height="28" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+  <text x="300" y="391" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">WHEP out</text>
 
-  <!-- Player -->
-  <rect x="320" y="522" width="300" height="140" rx="12" fill="#ffffff" stroke="#34d399" stroke-width="1.5"/>
-  <text x="336" y="552" font-size="13" font-weight="700" fill="#047857">PLAYER</text>
-  <line x1="320" y1="564" x2="620" y2="564" stroke="#a7f3d0" stroke-width="1"/>
-  <text x="336" y="592" font-size="12.5" fill="#14532d">Verifies signature + trust</text>
-  <text x="336" y="612" font-size="12.5" fill="#14532d">Displays video + status</text>
+  <!-- WHEP arrow -->
+  <line x1="300" y1="408" x2="300" y2="484" stroke="#10b981" stroke-width="2" marker-end="url(#arrGreen)"/>
+  <text x="316" y="446" font-size="12" font-weight="700" fill="#047857">WHEP</text>
 
-  <!-- ============ FLOW ARROWS ============ -->
-  <line x1="470" y1="412" x2="470" y2="522" stroke="#10b981" stroke-width="2" marker-end="url(#arrGreen)"/>
-  <text x="486" y="458" font-size="12" font-weight="700" fill="#047857">WHEP</text>
-  <text x="486" y="472" font-size="10.5" fill="#047857">+ C2PA manifest</text>
+  <!-- ============ PLAYER ============ -->
+  <rect x="120" y="484" width="360" height="130" rx="14" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <text x="300" y="514" text-anchor="middle" font-size="16" font-weight="700" fill="#047857">PLAYER</text>
+  <line x1="144" y1="526" x2="456" y2="526" stroke="#a7f3d0" stroke-width="1.5"/>
+  <text x="300" y="552" text-anchor="middle" font-size="13.5" fill="#334155">client</text>
+  <text x="300" y="574" text-anchor="middle" font-size="13.5" fill="#334155">verifies + displays</text>
 
-  <line x1="200" y1="412" x2="200" y2="522" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrGray)"/>
-  <text x="216" y="462" font-size="11" font-weight="700" fill="#4b5563">one-time</text>
-
-  <text x="360" y="732" text-anchor="middle" font-size="11.5" fill="#6b7280">
-    One laptop signs, one laptop verifies
+  <!-- ============ FOOTNOTE ============ -->
+  <text x="300" y="650" text-anchor="middle" font-size="11.5" fill="#94a3b8">
+    &#128274; CA trust anchor (shared once) &#183; one laptop signs, one laptop verifies
   </text>
 </svg>

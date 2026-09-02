@@ -19,22 +19,32 @@ pub fn generate_fake_manifest(title: &str) -> Result<Vec<u8>> {
 
     println!("Generating fake manifest (uuid={}, title={})...", FAKE_UUID, title);
 
+    // Pick an available H.265 encoder: prefer hardware VA-API on the host,
+    // fall back to software x265 (which is what the Docker image ships).
+    let encoder = if gst::ElementFactory::find("vah265enc").is_some() {
+        "vah265enc"
+    } else if gst::ElementFactory::find("x265enc").is_some() {
+        "x265enc"
+    } else {
+        anyhow::bail!("No H.265 encoder (vah265enc or x265enc) available for fake manifest generation");
+    };
+
     let script = format!(
         "#!/bin/bash\ngst-launch-1.0 -e \\\n\
          videotestsrc num-buffers=60 ! \\\n\
          video/x-raw,width=176,height=144 ! \\\n\
          videoconvert ! \\\n\
-         vah265enc key-int-max=30 ! \\\n\
+         {0} key-int-max=30 ! \\\n\
          h265parse ! \\\n\
          video/x-h265,stream-format=hvc1,alignment=au ! \\\n\
          dscsigner enable-c2pa=true \\\n\
-             c2pa-manifest-json='{{\\\"title\\\":\\\"{}\\\"}}' \\\n\
+             c2pa-manifest-json='{{\\\"title\\\":\\\"{1}\\\"}}' \\\n\
              private-key-path=/tmp/c2pa-certs/provider.key \\\n\
              public-key-uri=file:///tmp/c2pa-certs/provider.crt \\\n\
-             content-uuid={} \\\n\
+             content-uuid={2} \\\n\
              substream-length=30 hash-method=sha256 ! \\\n\
          fakesink\n",
-        title, FAKE_UUID
+        encoder, title, FAKE_UUID
     );
 
     let script_path = "/tmp/gen-fake-manifest.sh";

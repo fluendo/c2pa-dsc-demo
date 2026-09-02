@@ -39,6 +39,18 @@ struct Args {
     #[arg(long)]
     demo_ai_filter: bool,
 
+    #[arg(long, default_value = "1")]
+    ai_effect: u32,
+
+    #[arg(long, default_value = "95")]
+    ai_effect_intensity: f32,
+
+    #[arg(long, default_value = "/opt/fluendo/fluanonymizer/shared/raven")]
+    ai_model_path: String,
+
+    #[arg(long)]
+    software_encoder: bool,
+
     #[arg(long, default_value = "FakeStream")]
     demo_manifest_title: String,
 
@@ -83,7 +95,7 @@ fn main() -> Result<()> {
     let whip_endpoint = format!("{}/whip/endpoint", args.whip_server);
     let whep_endpoint = format!("{}/whep/endpoint", args.whep_server);
 
-    let cert_paths = if args.demo_untrusted_signer {
+    let cert_paths = if args.demo_untrusted_signer && !args.player_only {
         let paths = cert::CertPaths::impersonator(&args.certs_dir);
         cert::ensure_impersonator_certs(&paths)?;
         println!(">>> UNTRUSTED SIGNER MODE: using impersonator cert (NOT in CA chain)");
@@ -91,7 +103,12 @@ fn main() -> Result<()> {
     } else {
         cert::CertPaths::new(&args.certs_dir)
     };
-    cert::ensure_certs(&cert_paths, &args.openssl_config)?;
+    // Only the source/signature side needs generated keys. The player only
+    // needs the trust anchor (ca.crt), which is copied from the source machine;
+    // generating a new PKI here would overwrite that copied ca.crt.
+    if !args.player_only {
+        cert::ensure_certs(&cert_paths, &args.openssl_config)?;
+    }
 
     let dsc_config = DscConfig {
         private_key_path: cert_paths.private_key.clone(),
@@ -107,7 +124,28 @@ fn main() -> Result<()> {
         manifest_uri_template: None,
         public_key_uri: None,
         demo_ai_filter: args.demo_ai_filter,
+        ai_effect: args.ai_effect,
+        ai_effect_intensity: args.ai_effect_intensity,
+        ai_model_path: args.ai_model_path.clone(),
+        software_encoder: args.software_encoder,
     };
+
+    if args.demo_ai_filter {
+        match gst::ElementFactory::find("flufaceanonymizer") {
+            None => {
+                eprintln!(
+                    "ERROR: --demo-ai-filter requires the flufaceanonymizer GStreamer element,\n\
+                     but it was not found. Install the Fluendo anonymizer package and use the\n\
+                     launcher script (scripts/run-ai-filter.sh) which sets up the required\n\
+                     LD_LIBRARY_PATH/GST_PLUGIN_PATH environment."
+                );
+                std::process::exit(1);
+            }
+            Some(_) => {
+                println!(">>> AI FILTER: flufaceanonymizer element detected");
+            }
+        }
+    }
 
     if args.source_only {
         return run_source_only(&args, whip_endpoint, dsc_config, running);
@@ -141,12 +179,21 @@ fn run_source_only(
     let whip = whip_endpoint.clone();
     let dsc = dsc_config.clone();
     let r = running.clone();
+    let controls = Arc::new(Mutex::new(source::SourceControls::new()));
+    {
+        let mut c = controls.lock().unwrap();
+        c.available = gst::ElementFactory::find("flufaceanonymizer").is_some();
+        c.enabled = dsc_config.demo_ai_filter && c.available;
+        c.effect = dsc_config.ai_effect;
+        c.effect_intensity = dsc_config.ai_effect_intensity;
+    }
+    let controls_gtk = controls.clone();
     app.connect_activate(move |app| {
-        let _sw = source_ui::create_source_window(app, &cam_dev);
+        let _sw = source_ui::create_source_window(app, &cam_dev, controls_gtk.clone());
         _sw.present();
     });
     std::thread::spawn(move || {
-        let _ = source::run(&whip, &dsc, r);
+        let _ = source::run(&whip, &dsc, r, controls);
     });
     app.run_with_args(&[] as &[&str]);
     Ok(())
@@ -154,8 +201,7 @@ fn run_source_only(
 
 fn run_server_only(args: &Args, running: Arc<AtomicBool>) -> Result<()> {
     use gtk::prelude::*;
-    let payloader = Arc::new(Mutex::new(None));
-    let pr = payloader.clone();
+    let control = Arc::new(server::TamperControl::new());
     let fake_title = args.demo_manifest_title.clone();
     // Generate fake manifest for the manifest swap demo
     let fake_data = match manifest::generate_fake_manifest(&fake_title) {
@@ -174,16 +220,16 @@ fn run_server_only(args: &Args, running: Arc<AtomicBool>) -> Result<()> {
     let whip = args.whip_server.clone();
     let whep = args.whep_server.clone();
     let running_clone = running.clone();
-    // Server thread uses the SAME payloader Arc as the GTK window
-    let pr_server = payloader.clone();
+    let control_server = control.clone();
     let app = gtk::Application::new(Some("com.fluendo.c2pa-dsc.server"), Default::default());
     let ms2 = ms.clone();
+    let control_gtk = control.clone();
     app.connect_activate(move |app| {
-        let _sw = server_ui::create_server_window(app, pr.clone(), &ms2, &fake_title);
+        let _sw = server_ui::create_server_window(app, control_gtk.clone(), &ms2, &fake_title);
         _sw.present();
     });
     std::thread::spawn(move || {
-        let _ = server::run(whip, whep, running_clone, pr_server);
+        let _ = server::run(whip, whep, running_clone, control_server);
     });
     app.run_with_args(&[] as &[&str]);
     Ok(())
@@ -243,16 +289,16 @@ fn run_full(
     let server_running = running.clone();
     let server_whip = args.whip_server.clone();
     let server_whep = args.whep_server.clone();
-    let payloader = Arc::new(Mutex::new(None));
-    let pr = payloader.clone();
+    let control = Arc::new(server::TamperControl::new());
+    let control_server = control.clone();
     std::thread::spawn(move || {
-        if let Err(e) = server::run(server_whip, server_whep, server_running, pr) {
+        if let Err(e) = server::run(server_whip, server_whep, server_running, control_server) {
             eprintln!("Server thread error: {}", e);
         }
     });
 
     // Stdin toggle thread
-    let pt = payloader.clone();
+    let control_stdin = control.clone();
     let ms = manifest_http_state.clone();
     std::thread::spawn(move || {
         let mut buf = String::new();
@@ -261,11 +307,14 @@ fn run_full(
             buf.clear();
             if std::io::stdin().read_line(&mut buf).is_ok() {
                 match buf.trim() {
-                    "t" | "T" => match server::toggle_tamper(&pt) {
-                        Some(true) => eprintln!("\n>>> Tamper ON (bitstream modified, DSC will fail)"),
-                        Some(false) => eprintln!("\n>>> Tamper OFF (clean stream, DSC will pass)"),
-                        None => eprintln!("\n>>> No payloader available yet (wait for WHIP connection)"),
-                    },
+                    "t" | "T" => {
+                        let enabled = server::toggle_tamper(&control_stdin);
+                        if enabled {
+                            eprintln!("\n>>> Tamper ON (5s tampered / 5s clear)");
+                        } else {
+                            eprintln!("\n>>> Tamper OFF (clean stream, DSC will pass)");
+                        }
+                    }
                     "m" | "M" => {
                         let mut guard = ms.lock().unwrap();
                         *guard = !*guard;
@@ -288,8 +337,17 @@ fn run_full(
     // Source thread
     let dsc_source = dsc_config.clone();
     let source_running = running.clone();
+    let controls = Arc::new(Mutex::new(source::SourceControls::new()));
+    {
+        let mut c = controls.lock().unwrap();
+        c.available = gst::ElementFactory::find("flufaceanonymizer").is_some();
+        c.enabled = dsc_config.demo_ai_filter && c.available;
+        c.effect = dsc_config.ai_effect;
+        c.effect_intensity = dsc_config.ai_effect_intensity;
+    }
+    let controls_gtk = controls.clone();
     std::thread::spawn(move || {
-        if let Err(e) = source::run(&whip_endpoint, &dsc_source, source_running) {
+        if let Err(e) = source::run(&whip_endpoint, &dsc_source, source_running, controls) {
             eprintln!("Source thread error: {}", e);
         }
     });
@@ -303,7 +361,7 @@ fn run_full(
     use gtk::prelude::*;
     let whep = whep_endpoint.clone();
     let dsc_gtk = dsc_config.clone();
-    let payloader_gtk = payloader.clone();
+    let control_gtk = control.clone();
     let manifest_gtk = manifest_http_state.clone();
     let fake_title = args.demo_manifest_title.clone();
     let cam_dev = args.camera_device.clone();
@@ -312,9 +370,9 @@ fn run_full(
         if let Err(e) = player::run_gtk(app, &whep, &dsc_gtk) {
             eprintln!("Player GTK error: {}", e);
         }
-        let _sw = server_ui::create_server_window(app, payloader_gtk.clone(), &manifest_gtk, &fake_title);
+        let _sw = server_ui::create_server_window(app, control_gtk.clone(), &manifest_gtk, &fake_title);
         _sw.present();
-        let _sw = source_ui::create_source_window(app, &cam_dev);
+        let _sw = source_ui::create_source_window(app, &cam_dev, controls_gtk.clone());
         _sw.present();
     });
     app.run_with_args(&[] as &[&str]);

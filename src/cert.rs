@@ -15,6 +15,10 @@ pub struct DscConfig {
     pub manifest_uri_template: Option<String>,
     pub public_key_uri: Option<String>,
     pub demo_ai_filter: bool,
+    pub ai_effect: u32,
+    pub ai_effect_intensity: f32,
+    pub ai_model_path: String,
+    pub software_encoder: bool,
 }
 
 pub struct CertPaths {
@@ -66,6 +70,19 @@ pub fn ensure_certs(certs: &CertPaths, openssl_config: &Path) -> Result<()> {
         && certs.private_key.exists()
         && certs.cert.exists()
     {
+        // The files exist, but they may be owned by root (created by a Docker
+        // run that mounted /tmp). Verify the private key is actually readable,
+        // otherwise the DSC signer fails with a cryptic "Failed to activate pad".
+        if std::fs::read(&certs.private_key).is_err() {
+            let dir = certs.private_key.parent().unwrap_or(Path::new("/tmp"));
+            anyhow::bail!(
+                "Certificate files exist at {} but are not readable \
+                 (probably created by Docker as root). Remove them and re-run:\n\
+                 \n  sudo rm -rf {}\n",
+                certs.private_key.display(),
+                dir.display()
+            );
+        }
         return Ok(());
     }
 

@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y --fix-missing \
     libglib2.0-dev libssl-dev \
     gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-x \
+    v4l-utils \
     libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libswscale-dev \
     libx264-dev libx265-dev libvpx-dev libopus-dev \
     libsrtp2-dev libnice-dev \
-    libgudev-1.0-dev libva-dev libdrm-dev \
     libgtk-4-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,7 +33,7 @@ RUN git clone --depth=1 --branch h265-sei-dsc \
         -Dgpl=enabled \
         -Dgst-plugins-bad:videoparsers=enabled \
         -Dgst-plugins-bad:x265=enabled \
-        -Dgst-plugins-bad:va=enabled \
+        -Dgst-plugins-bad:va=disabled \
         -Dgstreamer:tools=enabled -Dlibav=enabled \
         -Dgst-plugins-bad:nvcodec=disabled \
         --wrap-mode=nofallback \
@@ -45,6 +45,8 @@ RUN git clone --depth=1 --branch dsc-upstream-c2pa \
     https://gitlab.freedesktop.org/diegonieto/gst-plugins-rs.git gst-plugins-rs \
     && cd gst-plugins-rs \
     && sed -i '/"utils\/tracers"/d' Cargo.toml \
+    && cargo update -p pkg-config --precise 0.3.34 \
+    && cargo update -p c2pa --precise 0.89.3 \
     && cargo build --release -p gst-plugin-dsc -p gst-plugin-webrtc -p gst-plugin-gtk4 \
     && cp target/release/libgstdsc.so /usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/ \
     && cp target/release/libgstrswebrtc.so /usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/ \
