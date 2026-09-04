@@ -310,7 +310,7 @@ fn run_full(
                     "t" | "T" => {
                         let enabled = server::toggle_tamper(&control_stdin);
                         if enabled {
-                            eprintln!("\n>>> Tamper ON (5s tampered / 5s clear)");
+                            eprintln!("\n>>> Tamper ON (sustained — switch off to restore)");
                         } else {
                             eprintln!("\n>>> Tamper OFF (clean stream, DSC will pass)");
                         }

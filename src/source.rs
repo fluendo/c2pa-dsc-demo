@@ -173,8 +173,9 @@ impl SourceControls {
 
 /// Toggle the face anonymizer live. Keeps the encoder/signer/WHIP sink (and
 /// therefore the WebRTC signaller) running; only the pre-encoder video path
-/// is switched via the input-selector. Also re-signs the manifest so the
-/// source type assertion flips between digitalCapture and trainedAlgorithmicMedia.
+/// is switched via the input-selector. The manifest template is updated so the
+/// next GOP's manifest flips between digitalCapture and trainedAlgorithmicMedia;
+/// the per-GOP signing itself is unchanged.
 pub fn set_anonymizer_enabled(controls: &Arc<Mutex<SourceControls>>, enabled: bool) {
     let mut c = controls.lock().unwrap();
     if !c.available {
@@ -372,6 +373,7 @@ fn run_with_encoder(
     // tee + input-selector pipeline so the anonymizer can be toggled live
     // without dropping the encoder/WHIP sink (and thus the WebRTC signaller).
     let ai_available = gst::ElementFactory::find("flufaceanonymizer").is_some();
+    let mut ai_caps_handle: Option<gst::Element> = None;
 
     if ai_available {
         let tee = make_element("tee", "tee")?;
@@ -387,17 +389,22 @@ fn run_with_encoder(
         let videoconvert2 = make_element("videoconvert", "videoconvert2")?;
         // Pin the anonymizer's output back to 4:2:0 so the encoder always emits
         // the same H.265 profile (main) whether or not the anonymizer is active.
-        // Otherwise the anonymizer can output 4:4:4, making x265enc switch to
-        // main-444, which would require a WebRTC renegotiation the sink does not
-        // support.
+        // The exact format/resolution/framerate are matched to the raw branch's
+        // negotiated caps after the pipeline reaches Playing (see below), so the
+        // two selector pads carry identical caps and switching the active-pad
+        // does not trigger a renegotiation that v4l2src can't handle live.
         let ai_caps = gst::ElementFactory::make("capsfilter")
             .name("ai-caps")
             .property(
                 "caps",
-                gst::Caps::builder("video/x-raw").field("format", "I420").build(),
+                gst::Caps::builder("video/x-raw").field("format", "NV12").build(),
             )
             .build()?;
         let queue_ai_out = make_element("queue", "ai-out-queue")?;
+
+        // Keep a handle so we can match ai-caps to the raw branch after the
+        // pipeline negotiates (see the post-state-change step below).
+        ai_caps_handle = Some(ai_caps.clone());
 
         pipeline.add_many([
             &videosrc,
@@ -559,6 +566,31 @@ fn run_with_encoder(
             ));
         }
         Ok(_) => {}
+    }
+
+    // The raw branch has now negotiated its format/resolution/framerate (the
+    // videoconvert src pad's caps are fixed once the first buffer flows). Match
+    // the AI branch's capsfilter to it so both selector pads carry identical
+    // caps and the live anonymizer toggle does not trigger a renegotiation that
+    // v4l2src can't handle (the raw branch format differs between native NV12
+    // and the Docker image's I420).
+    if let Some(ai_caps) = &ai_caps_handle {
+        let mut raw_caps = None;
+        for _ in 0..50 {
+            if let Some(src_pad) = videoconvert.static_pad("src") {
+                raw_caps = src_pad.current_caps();
+                if raw_caps.is_some() {
+                    break;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        if let Some(caps) = raw_caps {
+            eprintln!("[ai-caps] matched raw branch caps: {}", caps);
+            ai_caps.set_property("caps", caps);
+        } else {
+            eprintln!("[ai-caps] warning: raw branch caps never negotiated");
+        }
     }
 
     let bus = pipeline.bus().expect("Pipeline should have a bus");

@@ -157,8 +157,8 @@ pub fn create_server_window(
     tamper_switch.connect_state_set(move |_sw, state| {
         if state {
             start_tamper_cycle(&control);
-            ts.set_label("TAMPERED (5s)");
-            eprintln!("\n>>> Tamper ON (5s tampered / 5s clear)");
+            ts.set_label("TAMPERED");
+            eprintln!("\n>>> Tamper ON (sustained — switch off to restore)");
         } else {
             stop_tamper(&control);
             ts.set_label("CLEAN");
