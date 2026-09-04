@@ -468,6 +468,42 @@ Key points:
 - **`provider.key` never leaves Laptop 1**. Only the source component reads it for signing.
 - The **C2PA manifest** (`dsc-c2pa-{uuid}.c2pa`) is fetched each GOP via HTTP. The player sets `cache-c2pa-manifest=false` so it re-fetches on every verification cycle.
 
+#### ②b Using externally-issued (D-Trust) certificates
+
+Instead of the self-signed PKI, you can use a D-Trust `TEST_BASIC` certificate. The
+signer cert must carry an **EKU of `emailProtection`** (or `documentSigning`); c2pa-rs
+rejects certs whose EKU is only `TLS Web Client Authentication`.
+
+Prepare the PEM files from a D-Trust delivery (a `.p12` + the `.cert` files):
+
+```bash
+PIN=<p12-pin> scripts/prepare-dtrust-certs.sh /path/to/D-Trust /tmp/dtrust-certs
+```
+
+This produces (no `ca.key` is needed):
+
+```
+/tmp/dtrust-certs/ca.crt         # D-TRUST root CA  -> trust anchor
+/tmp/dtrust-certs/provider.crt   # leaf + intermediate CA (leaf first)
+/tmp/dtrust-certs/provider.key   # leaf private key
+```
+
+Then run with the `CERTS_DIR` override (defaults to `/tmp/c2pa-certs`):
+
+```bash
+# Laptop 1 — Source + Server (full bundle)
+SERVER_IP=<LAPTOP1_IP> CERTS_DIR=/tmp/dtrust-certs docker compose up server source
+
+# Laptop 2 — Player only (needs just the public root)
+mkdir -p /tmp/dtrust-certs
+scp user@<LAPTOP1_IP>:/tmp/dtrust-certs/ca.crt /tmp/dtrust-certs/
+SERVER_IP=<LAPTOP1_IP> CERTS_DIR=/tmp/dtrust-certs docker compose up player
+```
+
+`provider.crt` still travels over HTTP from Laptop 1; only the root `ca.crt` is
+distributed manually. `ensure_certs` skips generation when `ca.crt` + `provider.key`
++ `provider.crt` are present (no `ca.key` required).
+
 #### ③ Manifest Creation
 
 Each streaming session produces a unique **content-uuid** — a random UUID v4 (32 hex chars, no hyphens) generated at startup. It can be overridden with `--content-uuid <UUID_HEX>`:

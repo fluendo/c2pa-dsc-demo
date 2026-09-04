@@ -8,17 +8,17 @@ use std::time::Duration;
 ///
 /// The tamper is implemented as a pad-probe that reinjects cached VPS/SPS/PPS
 /// NAL units into every video access unit. This breaks the DSC hash of every
-/// substream (a sustained, viewer-invisible tamper), and is driven by a
-/// 5s-tampered / 5s-clean cycle.
+/// substream (a sustained, viewer-invisible tamper). While the switch is ON the
+/// stream stays tampered continuously; switching it OFF restores a clean stream.
 pub struct TamperControl {
-    /// Whether the tamper cycle is active (switch/toggle ON).
+    /// Whether the tamper is active (switch/toggle ON).
     pub enabled: Arc<AtomicBool>,
     /// Current phase: `true` = reinject (tampered), `false` = clean.
     pub phase: Arc<AtomicBool>,
     /// Cached VPS/SPS/PPS NAL bytes (hvc1 length-prefixed), extracted from the
     /// first IDR access unit.
     pub sps_pps: Arc<Mutex<Option<Vec<u8>>>>,
-    /// Whether the cycle thread has been spawned (spawned once, idles while disabled).
+    /// Whether the control thread has been spawned (spawned once, idles while disabled).
     started: Arc<AtomicBool>,
     /// Whether a WHIP source peer is currently connected.
     pub source_connected: Arc<AtomicBool>,
@@ -42,7 +42,8 @@ impl TamperControl {
     }
 }
 
-/// Enable the tamper and ensure the 5s/5s cycle thread is running.
+/// Enable the tamper and ensure the control thread is running. While enabled the
+/// stream stays tampered continuously; `stop_tamper` restores a clean stream.
 pub fn start_tamper_cycle(control: &Arc<TamperControl>) {
     if !control.started.swap(true, Ordering::SeqCst) {
         let control = control.clone();
@@ -51,10 +52,12 @@ pub fn start_tamper_cycle(control: &Arc<TamperControl>) {
             while !control.enabled.load(Ordering::SeqCst) {
                 std::thread::sleep(Duration::from_millis(100));
             }
+            // Tamper continuously while enabled.
             control.phase.store(true, Ordering::SeqCst);
-            std::thread::sleep(Duration::from_secs(5));
+            while control.enabled.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(100));
+            }
             control.phase.store(false, Ordering::SeqCst);
-            std::thread::sleep(Duration::from_secs(5));
         });
     }
     control.enabled.store(true, Ordering::SeqCst);
@@ -66,7 +69,7 @@ pub fn stop_tamper(control: &Arc<TamperControl>) {
     control.phase.store(false, Ordering::SeqCst);
 }
 
-/// Toggle the tamper cycle on/off; returns the new enabled state.
+/// Toggle the tamper on/off; returns the new enabled state.
 pub fn toggle_tamper(control: &Arc<TamperControl>) -> bool {
     if control.enabled.load(Ordering::SeqCst) {
         stop_tamper(control);

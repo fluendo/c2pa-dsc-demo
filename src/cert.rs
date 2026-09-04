@@ -23,7 +23,6 @@ pub struct DscConfig {
 
 pub struct CertPaths {
     pub ca_cert: PathBuf,
-    pub ca_key: PathBuf,
     pub private_key: PathBuf,
     pub cert: PathBuf,
     pub trust_store: PathBuf,
@@ -33,7 +32,6 @@ impl CertPaths {
     pub fn new(certs_dir: &Path) -> Self {
         Self {
             ca_cert: certs_dir.join("ca.crt"),
-            ca_key: certs_dir.join("ca.key"),
             private_key: certs_dir.join("provider.key"),
             cert: certs_dir.join("provider.crt"),
             trust_store: certs_dir.join("ca.crt"),
@@ -43,7 +41,6 @@ impl CertPaths {
     pub fn impersonator(certs_dir: &Path) -> Self {
         Self {
             ca_cert: certs_dir.join("ca.crt"),
-            ca_key: certs_dir.join("ca.key"),
             private_key: certs_dir.join("impersonator.key"),
             cert: certs_dir.join("impersonator.crt"),
             trust_store: certs_dir.join("ca.crt"),
@@ -66,7 +63,6 @@ fn run_openssl(args: &[&str]) -> Result<()> {
 
 pub fn ensure_certs(certs: &CertPaths, openssl_config: &Path) -> Result<()> {
     if certs.ca_cert.exists()
-        && certs.ca_key.exists()
         && certs.private_key.exists()
         && certs.cert.exists()
     {

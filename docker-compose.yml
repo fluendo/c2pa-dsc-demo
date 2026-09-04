@@ -34,6 +34,7 @@ services:
       --whip-server http://127.0.0.1:8190
       --manifest-host ${SERVER_IP:-127.0.0.1}:8765
       --camera-device ${CAMERA_DEVICE:-/dev/video0}
+      --certs-dir ${CERTS_DIR:-/tmp/c2pa-certs}
     environment:
       - DISPLAY=${DISPLAY}
       - GDK_DEBUG=gl-disable
@@ -59,7 +60,7 @@ services:
     privileged: true
     command: >-
       --player-only
-      --certs-dir /tmp/c2pa-certs
+      --certs-dir ${CERTS_DIR:-/tmp/c2pa-certs}
       --whep-server http://${SERVER_IP:-127.0.0.1}:8191
     environment:
       - DISPLAY=${DISPLAY}
