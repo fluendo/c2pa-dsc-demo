@@ -16,7 +16,7 @@ pub struct DscVerificationResult {
 
 pub struct PlayerUi {
     pub container: gtk::Box,
-    video_box: gtk::Box,
+    video_box: gtk::ScrolledWindow,
     dsc_box: gtk::Box,
     dsc_status: gtk::Label,
     c2pa_box: gtk::Box,
@@ -28,7 +28,7 @@ pub struct PlayerUi {
 }
 
 impl PlayerUi {
-    pub fn new(window_width: i32, _window_height: i32, whep_endpoint: &str) -> Self {
+    pub fn new(_window_width: i32, _window_height: i32, whep_endpoint: &str) -> Self {
         // CSS
         let css = gtk::CssProvider::new();
         css.load_from_data(
@@ -37,13 +37,13 @@ impl PlayerUi {
              .status-fail  { background: #cc0000; } \
              .status-ai    { background: #d97706; } \
              .status-box   { border-radius: 8px; padding: 8px 12px; } \
-             .status-text  { color: #ffffff; font-weight: bold; font-size: 13px; } \
+             .status-text  { color: #ffffff; font-weight: bold; font-size: 14px; } \
              .panel        { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px; } \
              .header       { background: #000000; padding: 8px 16px; } \
              .footer       { background: #000000; } \
-             .section-title { font-size: 14px; font-weight: bold; margin-top: 12px; } \
+             .section-title { font-size: 16px; font-weight: bold; margin-top: 12px; } \
              .diagram-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; } \
-             .data-label   { font-size: 13px; font-family: monospace; margin: 2px 0; } \
+             .data-label   { font-size: 15px; font-family: monospace; margin: 2px 0; } \
              .demo-desc    { font-size: 14px; color: #555555; margin-bottom: 8px; } \
              .footer-text  { font-size: 11px; color: #cccccc; } \
              .header-title { font-size: 18px; font-weight: bold; color: #ffffff; }",
@@ -105,8 +105,7 @@ impl PlayerUi {
         // Diagram area (left of the video)
         let diagram_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
         diagram_box.add_css_class("panel");
-        diagram_box.set_size_request(360, -1);
-        diagram_box.set_hexpand(false);
+        diagram_box.set_hexpand(true);
         diagram_box.set_vexpand(true);
         diagram_box.set_valign(gtk::Align::Fill);
         diagram_box.set_margin_start(12);
@@ -147,9 +146,13 @@ impl PlayerUi {
         diagram_box.append(&bottom_spacer);
 
         // Video area (left)
-        let video_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        let video_box = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vscrollbar_policy(gtk::PolicyType::Never)
+            .propagate_natural_width(false)
+            .propagate_natural_height(false)
+            .build();
         video_box.add_css_class("panel");
-        video_box.set_size_request(window_width * 45 / 100, -1);
         video_box.set_hexpand(false);
         video_box.set_vexpand(true);
         video_box.set_valign(gtk::Align::Fill);
@@ -160,7 +163,7 @@ impl PlayerUi {
             .valign(gtk::Align::Center)
             .vexpand(true)
             .build();
-        video_box.append(&video_placeholder);
+        video_box.set_child(Some(&video_placeholder));
 
         // Right info panel
         let right_panel = gtk::Box::new(gtk::Orientation::Vertical, 8);
@@ -238,14 +241,15 @@ impl PlayerUi {
         right_panel.append(&info_text);
         right_panel.append(&bottom_spacer);
 
-        // Main layout
-        let content = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        // Main layout: 35% left / 45% video / 20% right (7:9:4 of 20 columns)
+        let content = gtk::Grid::new();
+        content.set_column_homogeneous(true);
         content.set_vexpand(true);
         content.set_margin_top(12);
         content.set_margin_bottom(12);
-        content.append(&diagram_box);
-        content.append(&video_box);
-        content.append(&right_panel);
+        content.attach(&diagram_box, 0, 0, 7, 1);
+        content.attach(&video_box, 7, 0, 9, 1);
+        content.attach(&right_panel, 16, 0, 4, 1);
 
         let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
         container.append(&header);
@@ -267,10 +271,7 @@ impl PlayerUi {
     }
 
     pub fn set_video_widget(&self, widget: &impl gtk::prelude::IsA<gtk::Widget>) {
-        while let Some(child) = self.video_box.first_child() {
-            self.video_box.remove(&child);
-        }
-        self.video_box.append(widget);
+        self.video_box.set_child(Some(widget));
     }
 
     pub fn update(&self, result: &DscVerificationResult) {

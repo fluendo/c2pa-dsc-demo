@@ -37,16 +37,10 @@ struct Args {
     demo_untrusted_signer: bool,
 
     #[arg(long)]
-    demo_ai_filter: bool,
+    demo_facebl0r: bool,
 
-    #[arg(long, default_value = "1")]
-    ai_effect: u32,
-
-    #[arg(long, default_value = "95")]
-    ai_effect_intensity: f32,
-
-    #[arg(long, default_value = "/opt/fluendo/fluanonymizer/shared/raven")]
-    ai_model_path: String,
+    #[arg(long, default_value = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml")]
+    facebl0r_classifier: String,
 
     #[arg(long)]
     software_encoder: bool,
@@ -123,26 +117,23 @@ fn main() -> Result<()> {
         camera_device: Some(args.camera_device.clone()),
         manifest_uri_template: None,
         public_key_uri: None,
-        demo_ai_filter: args.demo_ai_filter,
-        ai_effect: args.ai_effect,
-        ai_effect_intensity: args.ai_effect_intensity,
-        ai_model_path: args.ai_model_path.clone(),
+        demo_facebl0r: args.demo_facebl0r,
+        facebl0r_classifier: args.facebl0r_classifier.clone(),
         software_encoder: args.software_encoder,
     };
 
-    if args.demo_ai_filter {
-        match gst::ElementFactory::find("flufaceanonymizer") {
+    if args.demo_facebl0r {
+        match gst::ElementFactory::find("frei0r-filter-facebl0r") {
             None => {
                 eprintln!(
-                    "ERROR: --demo-ai-filter requires the flufaceanonymizer GStreamer element,\n\
-                     but it was not found. Install the Fluendo anonymizer package and use the\n\
-                     launcher script (scripts/run-ai-filter.sh) which sets up the required\n\
-                     LD_LIBRARY_PATH/GST_PLUGIN_PATH environment."
+                    "ERROR: --demo-facebl0r requires the frei0r-filter-facebl0r GStreamer element,\n\
+                     but it was not found. Install frei0r-plugins + opencv-data and ensure the\n\
+                     frei0r filters directory is on FREI0R_PATH."
                 );
                 std::process::exit(1);
             }
             Some(_) => {
-                println!(">>> AI FILTER: flufaceanonymizer element detected");
+                println!(">>> FACEBl0r: frei0r-filter-facebl0r element detected");
             }
         }
     }
@@ -182,10 +173,8 @@ fn run_source_only(
     let controls = Arc::new(Mutex::new(source::SourceControls::new()));
     {
         let mut c = controls.lock().unwrap();
-        c.available = gst::ElementFactory::find("flufaceanonymizer").is_some();
-        c.enabled = dsc_config.demo_ai_filter && c.available;
-        c.effect = dsc_config.ai_effect;
-        c.effect_intensity = dsc_config.ai_effect_intensity;
+        c.facebl0r_available = gst::ElementFactory::find("frei0r-filter-facebl0r").is_some();
+        c.facebl0r_enabled = dsc_config.demo_facebl0r && c.facebl0r_available;
     }
     let controls_gtk = controls.clone();
     app.connect_activate(move |app| {
@@ -340,10 +329,8 @@ fn run_full(
     let controls = Arc::new(Mutex::new(source::SourceControls::new()));
     {
         let mut c = controls.lock().unwrap();
-        c.available = gst::ElementFactory::find("flufaceanonymizer").is_some();
-        c.enabled = dsc_config.demo_ai_filter && c.available;
-        c.effect = dsc_config.ai_effect;
-        c.effect_intensity = dsc_config.ai_effect_intensity;
+        c.facebl0r_available = gst::ElementFactory::find("frei0r-filter-facebl0r").is_some();
+        c.facebl0r_enabled = dsc_config.demo_facebl0r && c.facebl0r_available;
     }
     let controls_gtk = controls.clone();
     std::thread::spawn(move || {

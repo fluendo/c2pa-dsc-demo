@@ -273,8 +273,9 @@ pub fn run_gtk(app: &gtk::Application, whep_endpoint: &str, dsc: &DscConfig) -> 
         if let Some(paintable) = paintable {
             let picture = gtk::Picture::builder()
                 .paintable(&paintable)
-                .can_shrink(false)
-                .hexpand(true)
+                .can_shrink(true)
+                .content_fit(gtk::ContentFit::Contain)
+                .hexpand(false)
                 .vexpand(true)
                 .build();
             let ui = ui_rc.borrow();
@@ -297,9 +298,22 @@ pub fn run_gtk(app: &gtk::Application, whep_endpoint: &str, dsc: &DscConfig) -> 
     let pipeline = gst::Pipeline::builder().name("player-gtk").build();
     let whepclientsrc = make_whep_src(whep_endpoint)?;
     let videoconvert = make_element("videoconvert", "convert")?;
+    // Cap the displayed resolution at 720p (downscale only) so a large source
+    // frame can't force the video widget (and window) to grow.
+    let videoscale = make_element("videoscale", "scale")?;
+    let scale_caps = gst::ElementFactory::make("capsfilter")
+        .name("scale-caps")
+        .property(
+            "caps",
+            gst::Caps::builder("video/x-raw")
+                .field("width", gst::IntRange::<i32>::new(1, 1280))
+                .field("height", gst::IntRange::<i32>::new(1, 720))
+                .build(),
+        )
+        .build()?;
 
-    pipeline.add_many([&whepclientsrc, &videoconvert, &videosink])?;
-    gst::Element::link_many([&videoconvert, &videosink])?;
+    pipeline.add_many([&whepclientsrc, &videoconvert, &videoscale, &scale_caps, &videosink])?;
+    gst::Element::link_many([&videoconvert, &videoscale, &scale_caps, &videosink])?;
     link_whep_pads(&whepclientsrc, &videoconvert, &pipeline, dsc);
 
     println!("WHEP player started");

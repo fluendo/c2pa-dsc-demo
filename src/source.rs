@@ -10,12 +10,12 @@ const DIGITAL_CAPTURE: &str =
 const TRAINED_ALGORITHMIC_MEDIA: &str =
     "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia";
 
-fn build_manifest_json(ai_filter: bool, camera_name: &str) -> String {
+fn build_manifest_json(filter_enabled: bool, camera_name: &str) -> String {
     let mut actions = vec![serde_json::json!({
         "action": "c2pa.created",
         "digitalSourceType": DIGITAL_CAPTURE,
     })];
-    if ai_filter {
+    if filter_enabled {
         actions.push(serde_json::json!({
             "action": "c2pa.edited",
             "digitalSourceType": TRAINED_ALGORITHMIC_MEDIA,
@@ -127,96 +127,81 @@ fn usb_camera_name(device: &str) -> Option<String> {
     }
 }
 
-fn effect_nick(effect: u32) -> &'static str {
-    match effect {
-        0 => "pixelate",
-        2 => "opaque",
-        _ => "blur",
-    }
-}
-
 /// Live control handles for the source pipeline, shared between the source
 /// pipeline thread and the GTK source window.
 pub struct SourceControls {
-    pub available: bool,
-    pub enabled: bool,
-    pub effect: u32,
-    pub effect_intensity: f32,
+    pub facebl0r_available: bool,
+    pub facebl0r_enabled: bool,
     pub camera_name: String,
     selector: Option<gst::Element>,
     selector_raw_pad: Option<gst::Pad>,
-    selector_ai_pad: Option<gst::Pad>,
+    selector_fb_pad: Option<gst::Pad>,
     valve_raw: Option<gst::Element>,
-    valve_ai: Option<gst::Element>,
-    anonymizer: Option<gst::Element>,
+    valve_fb: Option<gst::Element>,
+    facebl0r: Option<gst::Element>,
     dscsigner: Option<gst::Element>,
 }
 
 impl SourceControls {
     pub fn new() -> Self {
         Self {
-            available: false,
-            enabled: false,
-            effect: 1,
-            effect_intensity: 95.0,
+            facebl0r_available: false,
+            facebl0r_enabled: false,
             camera_name: String::new(),
             selector: None,
             selector_raw_pad: None,
-            selector_ai_pad: None,
+            selector_fb_pad: None,
             valve_raw: None,
-            valve_ai: None,
-            anonymizer: None,
+            valve_fb: None,
+            facebl0r: None,
             dscsigner: None,
         }
     }
 }
 
-/// Toggle the face anonymizer live. Keeps the encoder/signer/WHIP sink (and
-/// therefore the WebRTC signaller) running; only the pre-encoder video path
-/// is switched via the input-selector. The manifest template is updated so the
-/// next GOP's manifest flips between digitalCapture and trainedAlgorithmicMedia;
-/// the per-GOP signing itself is unchanged.
-pub fn set_anonymizer_enabled(controls: &Arc<Mutex<SourceControls>>, enabled: bool) {
-    let mut c = controls.lock().unwrap();
-    if !c.available {
-        return;
-    }
-    c.enabled = enabled;
-    if let Some(sel) = &c.selector {
-        let pad = if enabled { &c.selector_ai_pad } else { &c.selector_raw_pad };
-        if let Some(pad) = pad {
-            sel.set_property("active-pad", pad);
-        }
+/// Apply the current facebl0r state to the selector, valves and the manifest
+/// template (raw vs facebl0r).
+fn apply_filter_state(c: &mut SourceControls) {
+    let fb_on = c.facebl0r_enabled;
+
+    let active_pad = if fb_on {
+        c.selector_fb_pad.as_ref()
+    } else {
+        c.selector_raw_pad.as_ref()
+    };
+    if let (Some(sel), Some(pad)) = (&c.selector, active_pad) {
+        sel.set_property("active-pad", pad);
     }
     if let Some(v) = &c.valve_raw {
-        v.set_property("drop", enabled);
+        v.set_property("drop", fb_on);
     }
-    if let Some(v) = &c.valve_ai {
-        v.set_property("drop", !enabled);
+    if let Some(v) = &c.valve_fb {
+        v.set_property("drop", !fb_on);
     }
     if let Some(d) = &c.dscsigner {
-        d.set_property_from_str("c2pa-manifest-json", &build_manifest_json(enabled, &c.camera_name));
+        d.set_property_from_str(
+            "c2pa-manifest-json",
+            &build_manifest_json(fb_on, &c.camera_name),
+        );
     }
+}
+
+/// Toggle the facebl0r (frei0r) face blur live. Keeps the encoder/signer/WHIP
+/// sink running; only the pre-encoder video path is switched via the
+/// input-selector. The manifest template is updated so the next GOP's manifest
+/// flips between digitalCapture and trainedAlgorithmicMedia; the per-GOP signing
+/// itself is unchanged.
+pub fn set_facebl0r_enabled(controls: &Arc<Mutex<SourceControls>>, enabled: bool) {
+    let mut c = controls.lock().unwrap();
+    if !c.facebl0r_available {
+        return;
+    }
+    c.facebl0r_enabled = enabled;
+    apply_filter_state(&mut c);
     eprintln!(
-        "\n>>> Anonymizer {} (live)",
+        "\n>>> FaceBl0r {} (live)",
         if enabled { "ON" } else { "OFF" }
     );
-}
-
-pub fn set_anonymizer_effect(controls: &Arc<Mutex<SourceControls>>, effect: u32) {
-    let mut c = controls.lock().unwrap();
-    c.effect = effect;
-    if let Some(a) = &c.anonymizer {
-        a.set_property_from_str("effect", effect_nick(effect));
-    }
-}
-
-pub fn set_anonymizer_intensity(controls: &Arc<Mutex<SourceControls>>, intensity: f32) {
-    let mut c = controls.lock().unwrap();
-    c.effect_intensity = intensity;
-    if let Some(a) = &c.anonymizer {
-        a.set_property("effect-intensity", intensity);
-    }
 }
 
 fn make_element(factory: &str, name: &str) -> Result<gst::Element> {
@@ -281,6 +266,20 @@ fn run_with_encoder(
         .build()?;
 
     let videoconvert = make_element("videoconvert", "videoconvert")?;
+
+    // Cap the source resolution at 720p (downscale only): larger inputs are
+    // scaled down to 1280x720, smaller inputs (e.g. 640x480) are left as-is.
+    let videoscale = make_element("videoscale", "videoscale")?;
+    let scale_caps = gst::ElementFactory::make("capsfilter")
+        .name("scale-caps")
+        .property(
+            "caps",
+            gst::Caps::builder("video/x-raw")
+                .field("width", gst::IntRange::<i32>::new(1, 1280))
+                .field("height", gst::IntRange::<i32>::new(1, 720))
+                .build(),
+        )
+        .build()?;
 
     let audiotestsrc = gst::ElementFactory::make("audiotestsrc")
         .name("audiosrc")
@@ -347,7 +346,7 @@ fn run_with_encoder(
     dscsigner.set_property("enable-c2pa", true);
     dscsigner.set_property_from_str(
         "c2pa-manifest-json",
-        &build_manifest_json(dsc.demo_ai_filter, &camera_name),
+        &build_manifest_json(dsc.demo_facebl0r, &camera_name),
     );
     dscsigner.set_property_from_str(
         "private-key-path",
@@ -368,56 +367,60 @@ fn run_with_encoder(
 
     let seiinserter = make_element("h265seiinserter", "seiinserter")?;
 
-    // Optional AI face anonymization (flufaceanonymizer element from the
-    // Fluendo anonymizer package). When the element is available we build a
-    // tee + input-selector pipeline so the anonymizer can be toggled live
-    // without dropping the encoder/WHIP sink (and thus the WebRTC signaller).
-    let ai_available = gst::ElementFactory::find("flufaceanonymizer").is_some();
-    let mut ai_caps_handle: Option<gst::Element> = None;
+    // Optional face blurring via the frei0r facebl0r filter. When available we
+    // build a tee + input-selector pipeline so the filter can be toggled live
+    // without dropping the encoder/WHIP sink.
+    let fb_available = gst::ElementFactory::find("frei0r-filter-facebl0r").is_some();
+    let mut fb_caps_handle: Option<gst::Element> = None;
 
-    if ai_available {
+    if fb_available {
         let tee = make_element("tee", "tee")?;
         let selector = make_element("input-selector", "selector")?;
         let queue_raw = make_element("queue", "raw-queue")?;
         let valve_raw = make_element("valve", "raw-valve")?;
-        let queue_ai = make_element("queue", "ai-queue")?;
-        let valve_ai = make_element("valve", "ai-valve")?;
-        let anonymizer = make_element("flufaceanonymizer", "anonymizer")?;
-        anonymizer.set_property_from_str("effect", effect_nick(dsc.ai_effect));
-        anonymizer.set_property("effect-intensity", dsc.ai_effect_intensity);
-        anonymizer.set_property_from_str("model-path", &dsc.ai_model_path);
-        let videoconvert2 = make_element("videoconvert", "videoconvert2")?;
-        // Pin the anonymizer's output back to 4:2:0 so the encoder always emits
-        // the same H.265 profile (main) whether or not the anonymizer is active.
-        // The exact format/resolution/framerate are matched to the raw branch's
-        // negotiated caps after the pipeline reaches Playing (see below), so the
-        // two selector pads carry identical caps and switching the active-pad
-        // does not trigger a renegotiation that v4l2src can't handle live.
-        let ai_caps = gst::ElementFactory::make("capsfilter")
-            .name("ai-caps")
-            .property(
-                "caps",
-                gst::Caps::builder("video/x-raw").field("format", "NV12").build(),
-            )
-            .build()?;
-        let queue_ai_out = make_element("queue", "ai-out-queue")?;
 
-        // Keep a handle so we can match ai-caps to the raw branch after the
-        // pipeline negotiates (see the post-state-change step below).
-        ai_caps_handle = Some(ai_caps.clone());
+        // ---- facebl0r branch (frei0r) ----
+        let queue_fb = make_element("queue", "fb-queue")?;
+        let valve_fb = make_element("valve", "fb-valve")?;
+        // facebl0r works on BGRA8888, so convert in and out of BGRA around it.
+        let vc_fb_in = make_element("videoconvert", "fb-videoconvert-in")?;
+        let facebl0r = {
+            let f = make_element("frei0r-filter-facebl0r", "facebl0r")?;
+            f.set_property_from_str("classifier", &dsc.facebl0r_classifier);
+            f.set_property("ellipse", false);
+            f
+        };
+        let vc_fb_out = make_element("videoconvert", "fb-videoconvert-out")?;
+        let fb_caps = {
+            let c = gst::ElementFactory::make("capsfilter")
+                .name("fb-caps")
+                .property(
+                    "caps",
+                    gst::Caps::builder("video/x-raw").field("format", "I420").build(),
+                )
+                .build()?;
+            fb_caps_handle = Some(c.clone());
+            c
+        };
+        let queue_fb_out = make_element("queue", "fb-out-queue")?;
 
-        pipeline.add_many([
+        let mut elements: Vec<&gst::Element> = vec![
             &videosrc,
             &videoconvert,
+            &videoscale,
+            &scale_caps,
             &tee,
             &queue_raw,
             &valve_raw,
-            &queue_ai,
-            &valve_ai,
-            &anonymizer,
-            &videoconvert2,
-            &ai_caps,
-            &queue_ai_out,
+            &queue_fb,
+            &valve_fb,
+            &vc_fb_in,
+            &facebl0r,
+            &vc_fb_out,
+            &fb_caps,
+            &queue_fb_out,
+        ];
+        elements.extend([
             &selector,
             &encoder,
             &enc_queue,
@@ -430,12 +433,15 @@ fn run_with_encoder(
             &audioresample,
             &audioconvert,
             &whipsink,
-        ])?;
+        ]);
+        pipeline.add_many(&elements)?;
 
         videosrc.link(&videoconvert)?;
-        videoconvert.link(&tee)?;
+        videoconvert.link(&videoscale)?;
+        videoscale.link(&scale_caps)?;
+        scale_caps.link(&tee)?;
 
-        // Raw branch (bypasses the anonymizer).
+        // Raw branch (bypasses the filter).
         let tee_pad0 = tee
             .request_pad_simple("src_%u")
             .ok_or_else(|| anyhow::anyhow!("tee: failed to request src pad"))?;
@@ -449,26 +455,27 @@ fn run_with_encoder(
             .unwrap()
             .link(&selector_raw_pad)?;
 
-        // AI branch (through the anonymizer).
-        let tee_pad1 = tee
+        // facebl0r branch.
+        let tee_pad2 = tee
             .request_pad_simple("src_%u")
             .ok_or_else(|| anyhow::anyhow!("tee: failed to request src pad"))?;
-        tee_pad1.link(&queue_ai.static_pad("sink").unwrap())?;
+        tee_pad2.link(&queue_fb.static_pad("sink").unwrap())?;
         gst::Element::link_many([
-            &queue_ai,
-            &valve_ai,
-            &anonymizer,
-            &videoconvert2,
-            &ai_caps,
-            &queue_ai_out,
+            &queue_fb,
+            &valve_fb,
+            &vc_fb_in,
+            &facebl0r,
+            &vc_fb_out,
+            &fb_caps,
+            &queue_fb_out,
         ])?;
-        let selector_ai_pad = selector
+        let selector_fb_pad = selector
             .request_pad_simple("sink_%u")
             .ok_or_else(|| anyhow::anyhow!("input-selector: failed to request sink pad"))?;
-        queue_ai_out
+        queue_fb_out
             .static_pad("src")
             .unwrap()
-            .link(&selector_ai_pad)?;
+            .link(&selector_fb_pad)?;
 
         gst::Element::link_many([
             &selector,
@@ -483,24 +490,26 @@ fn run_with_encoder(
 
         {
             let mut c = controls.lock().unwrap();
-            c.available = true;
-            c.enabled = dsc.demo_ai_filter;
+            c.facebl0r_available = fb_available;
+            c.facebl0r_enabled = dsc.demo_facebl0r;
             c.camera_name = camera_name.clone();
             c.selector = Some(selector);
             c.selector_raw_pad = Some(selector_raw_pad);
-            c.selector_ai_pad = Some(selector_ai_pad);
+            c.selector_fb_pad = Some(selector_fb_pad);
             c.valve_raw = Some(valve_raw);
-            c.valve_ai = Some(valve_ai);
-            c.anonymizer = Some(anonymizer);
+            c.valve_fb = Some(valve_fb);
+            c.facebl0r = Some(facebl0r);
             c.dscsigner = Some(dscsigner.clone());
         }
-        set_anonymizer_enabled(controls, dsc.demo_ai_filter);
+        set_facebl0r_enabled(controls, dsc.demo_facebl0r);
 
-        println!("WHIP source started with DSC signing (AI anonymizer available)");
+        println!("WHIP source started with DSC signing (facebl0r available)");
     } else {
         pipeline.add_many([
             &videosrc,
             &videoconvert,
+            &videoscale,
+            &scale_caps,
             &encoder,
             &enc_queue,
             &h265parse,
@@ -517,6 +526,8 @@ fn run_with_encoder(
         videosrc.link(&videoconvert)?;
         gst::Element::link_many([
             &videoconvert,
+            &videoscale,
+            &scale_caps,
             &encoder,
             &enc_queue,
             &h265parse,
@@ -528,8 +539,8 @@ fn run_with_encoder(
 
         {
             let mut c = controls.lock().unwrap();
-            c.available = false;
-            c.enabled = false;
+            c.facebl0r_available = false;
+            c.facebl0r_enabled = false;
             c.camera_name = camera_name.clone();
         }
 
@@ -568,16 +579,14 @@ fn run_with_encoder(
         Ok(_) => {}
     }
 
-    // The raw branch has now negotiated its format/resolution/framerate (the
-    // videoconvert src pad's caps are fixed once the first buffer flows). Match
-    // the AI branch's capsfilter to it so both selector pads carry identical
-    // caps and the live anonymizer toggle does not trigger a renegotiation that
-    // v4l2src can't handle (the raw branch format differs between native NV12
-    // and the Docker image's I420).
-    if let Some(ai_caps) = &ai_caps_handle {
+    // The capped (<=720p) resolution is now negotiated (the scale-caps src pad
+    // is fixed once the first buffer flows). Match the facebl0r branch's
+    // capsfilter to it so both selector pads carry identical caps and switching
+    // the active-pad does not trigger a renegotiation that v4l2src can't handle.
+    if fb_caps_handle.is_some() {
         let mut raw_caps = None;
         for _ in 0..50 {
-            if let Some(src_pad) = videoconvert.static_pad("src") {
+            if let Some(src_pad) = scale_caps.static_pad("src") {
                 raw_caps = src_pad.current_caps();
                 if raw_caps.is_some() {
                     break;
@@ -585,11 +594,14 @@ fn run_with_encoder(
             }
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
-        if let Some(caps) = raw_caps {
-            eprintln!("[ai-caps] matched raw branch caps: {}", caps);
-            ai_caps.set_property("caps", caps);
-        } else {
-            eprintln!("[ai-caps] warning: raw branch caps never negotiated");
+        match raw_caps {
+            Some(caps) => {
+                if let Some(fb_caps) = &fb_caps_handle {
+                    eprintln!("[fb-caps] matched raw branch caps: {}", caps);
+                    fb_caps.set_property("caps", caps);
+                }
+            }
+            None => eprintln!("[caps] warning: raw branch caps never negotiated"),
         }
     }
 

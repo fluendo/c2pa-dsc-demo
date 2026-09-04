@@ -1,8 +1,5 @@
 use crate::network;
-use crate::source::{
-    detect_camera_name, set_anonymizer_effect, set_anonymizer_enabled, set_anonymizer_intensity,
-    SourceControls,
-};
+use crate::source::{detect_camera_name, set_facebl0r_enabled, SourceControls};
 use gtk::prelude::*;
 use std::sync::{Arc, Mutex};
 
@@ -67,89 +64,41 @@ pub fn create_source_window(
     container.append(&sign_label);
     container.append(&status_label);
 
-    // AI anonymizer controls
-    let (available, enabled, effect, intensity) = {
+    // Face anonymizer (facebl0r) controls
+    let (fb_available, fb_enabled) = {
         let c = controls.lock().unwrap();
-        (c.available, c.enabled, c.effect, c.effect_intensity)
+        (c.facebl0r_available, c.facebl0r_enabled)
     };
 
-    let sec_ai = gtk::Label::builder()
-        .label("AI Anonymizer")
+    let sec_fb = gtk::Label::builder()
+        .label("Face Anonymizer")
         .css_classes(["section-title"])
         .halign(gtk::Align::Start)
         .margin_top(16)
         .build();
-    container.append(&sec_ai);
+    container.append(&sec_fb);
 
-    let ai_switch = gtk::Switch::builder()
-        .active(enabled)
+    let fb_switch = gtk::Switch::builder()
+        .active(fb_enabled)
         .valign(gtk::Align::Center)
         .build();
-    ai_switch.set_sensitive(available);
-    let ai_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    let ai_label = gtk::Label::builder()
+    fb_switch.set_sensitive(fb_available);
+    let fb_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    let fb_label = gtk::Label::builder()
         .label("Face anonymizer")
         .css_classes(["data-label"])
         .halign(gtk::Align::Start)
         .build();
-    ai_row.append(&ai_label);
-    ai_row.append(&ai_switch);
-    container.append(&ai_row);
+    fb_row.append(&fb_label);
+    fb_row.append(&fb_switch);
+    container.append(&fb_row);
 
-    let effect_label = gtk::Label::builder()
-        .label("Effect")
-        .css_classes(["data-label"])
-        .halign(gtk::Align::Start)
-        .build();
-    let effect_dropdown = gtk::DropDown::from_strings(&["Pixelate", "Blur", "Opaque"]);
-    effect_dropdown.set_selected(effect);
-    effect_dropdown.set_sensitive(available && enabled);
-    let effect_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    effect_row.append(&effect_label);
-    effect_row.append(&effect_dropdown);
-    container.append(&effect_row);
-
-    let intensity_label = gtk::Label::builder()
-        .label("Intensity")
-        .css_classes(["data-label"])
-        .halign(gtk::Align::Start)
-        .build();
-    let intensity_scale =
-        gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 1.0);
-    intensity_scale.set_value(intensity as f64);
-    intensity_scale.set_hexpand(true);
-    intensity_scale.set_sensitive(available && enabled);
-    let intensity_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    intensity_row.append(&intensity_label);
-    intensity_row.append(&intensity_scale);
-    container.append(&intensity_row);
-
-    // Toggle the anonymizer live when the switch changes.
+    // Toggle the facebl0r filter live when its switch changes.
     {
         let controls = controls.clone();
-        let effect_dropdown = effect_dropdown.clone();
-        let intensity_scale = intensity_scale.clone();
-        ai_switch.connect_state_set(move |_sw, state| {
-            set_anonymizer_enabled(&controls, state);
-            effect_dropdown.set_sensitive(state);
-            intensity_scale.set_sensitive(state);
+        fb_switch.connect_state_set(move |_sw, state| {
+            set_facebl0r_enabled(&controls, state);
             glib::Propagation::Proceed
-        });
-    }
-
-    // Change the effect (pixelate / blur / opaque) live.
-    {
-        let controls = controls.clone();
-        effect_dropdown.connect_selected_notify(move |dd| {
-            set_anonymizer_effect(&controls, dd.selected());
-        });
-    }
-
-    // Change the effect intensity live.
-    {
-        let controls = controls.clone();
-        intensity_scale.connect_value_changed(move |s| {
-            set_anonymizer_intensity(&controls, s.value() as f32);
         });
     }
 

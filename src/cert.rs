@@ -14,10 +14,8 @@ pub struct DscConfig {
     pub camera_device: Option<String>,
     pub manifest_uri_template: Option<String>,
     pub public_key_uri: Option<String>,
-    pub demo_ai_filter: bool,
-    pub ai_effect: u32,
-    pub ai_effect_intensity: f32,
-    pub ai_model_path: String,
+    pub demo_facebl0r: bool,
+    pub facebl0r_classifier: String,
     pub software_encoder: bool,
 }
 

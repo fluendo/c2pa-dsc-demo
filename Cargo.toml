@@ -11,7 +11,7 @@ gtk4 = ["dep:gtk", "dep:glib", "dep:gdk"]
 gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", branch = "main" }
 gst-video = { package = "gstreamer-video", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", branch = "main" }
 gst-app = { package = "gstreamer-app", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", branch = "main" }
-gtk = { package = "gtk4", git = "https://github.com/gtk-rs/gtk4-rs", branch = "main", features = ["v4_6"], optional = true }
+gtk = { package = "gtk4", git = "https://github.com/gtk-rs/gtk4-rs", branch = "main", features = ["v4_8"], optional = true }
 gdk = { package = "gdk4", git = "https://github.com/gtk-rs/gtk4-rs", branch = "main", features = ["v4_4"], optional = true }
 glib = { git = "https://github.com/gtk-rs/gtk-rs-core", branch = "main", optional = true }
 clap = { version = "4", features = ["derive"] }

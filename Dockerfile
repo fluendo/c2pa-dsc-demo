@@ -1,5 +1,11 @@
 FROM c2pa-dsc-base:latest
 
+# facebl0r (frei0r) fallback anonymizer: filters + OpenCV cascade data.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        frei0r-plugins opencv-data \
+    && rm -rf /var/lib/apt/lists/*
+ENV FREI0R_PATH=/usr/lib/frei0r-1
+
 WORKDIR /root/c2pa-dsc-live-demo
 
 COPY . .
