@@ -7,10 +7,7 @@ pub struct DscVerificationResult {
     pub c2pa_status: String,
     pub manifest_title: String,
     pub provenance: String,
-    pub actions: String,
-    pub claim_generator: String,
     pub signer: String,
-    pub digital_source_type: String,
     pub ai_modified: bool,
 }
 

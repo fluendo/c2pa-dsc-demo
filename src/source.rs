@@ -272,35 +272,146 @@ fn run_with_encoder(
 ) -> Result<()> {
     let pipeline = gst::Pipeline::builder().name("source-ingest").build();
 
-    let device = dsc.camera_device.as_deref().unwrap_or("/dev/video0");
-    let camera_name = detect_camera_name(device);
-    println!("Using camera: {} ({})", device, camera_name);
-    let videosrc = gst::ElementFactory::make("v4l2src")
-        .name("videosrc")
-        .property("device", device)
-        .build()?;
-
     let videoconvert = make_element("videoconvert", "videoconvert")?;
+    pipeline.add(&videoconvert)?;
 
-    let audiotestsrc = gst::ElementFactory::make("audiotestsrc")
-        .name("audiosrc")
-        .property("is-live", true)
-        .property_from_str("wave", "ticks")
-        .build()?;
-
-    let audiocaps = gst::ElementFactory::make("capsfilter")
-        .name("audio-caps")
-        .property(
-            "caps",
-            gst::Caps::builder("audio/x-raw")
-                .field("channels", 2i32)
-                .field("rate", 48000i32)
-                .build(),
-        )
-        .build()?;
+    // Video source: a pre-recorded file (filesrc + decodebin3) or the live
+    // camera (v4l2src); both feed into videoconvert.
+    let mut dbin_handle: Option<gst::Element> = None;
+    let mut _dbin_pad_added: Option<glib::SignalHandlerId> = None;
+    let file_mode = dsc.input_file.is_some();
 
     let audioresample = make_element("audioresample", "audioresample")?;
     let audioconvert = make_element("audioconvert", "audioconvert")?;
+    pipeline.add_many([&audioresample, &audioconvert])?;
+
+    let source_title: String;
+    if let Some(path) = dsc.input_file.as_deref() {
+        source_title = std::path::Path::new(path)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| path.to_string());
+        println!("Using file: {}", path);
+
+        let filesrc = make_element("filesrc", "filesrc")?;
+        filesrc.set_property("location", path);
+        let dbin = make_element("decodebin3", "decodebin3")?;
+        // Pace the (non-live) file to a fixed framerate and cap at 720p so the
+        // live encoder can keep up (a 1440p/4K file would otherwise stall x265).
+        let videorate = make_element("videorate", "videorate")?;
+        let rate_caps = gst::ElementFactory::make("capsfilter")
+            .name("file-rate-caps")
+            .property(
+                "caps",
+                gst::Caps::builder("video/x-raw")
+                    .field("framerate", gst::Fraction::new(30, 1))
+                    .build(),
+            )
+            .build()?;
+        // filesrc is non-live and decodes faster than real-time; identity with
+        // sync=true paces the buffers to the pipeline clock so the live
+        // webrtcsink receives them at real-time instead of a single burst.
+        let file_pace = make_element("identity", "file-pace")?;
+        file_pace.set_property("sync", true);
+        let audio_pace = make_element("identity", "file-audio-pace")?;
+        audio_pace.set_property("sync", true);
+        let videoscale = make_element("videoscale", "videoscale")?;
+        let scale_caps = gst::ElementFactory::make("capsfilter")
+            .name("file-scale-caps")
+            .property(
+                "caps",
+                gst::Caps::builder("video/x-raw")
+                    .field("width", gst::IntRange::<i32>::new(1, 1280))
+                    .field("height", gst::IntRange::<i32>::new(1, 720))
+                    .build(),
+            )
+            .build()?;
+
+        pipeline.add_many([
+            &filesrc,
+            &dbin,
+            &videorate,
+            &rate_caps,
+            &file_pace,
+            &audio_pace,
+            &videoscale,
+            &scale_caps,
+        ])?;
+        filesrc.link(&dbin)?;
+        gst::Element::link_many([
+            &videorate,
+            &rate_caps,
+            &file_pace,
+            &videoscale,
+            &scale_caps,
+            &videoconvert,
+        ])?;
+        audio_pace.link(&audioresample)?;
+
+        // decodebin3 exposes video_%u / audio_%u src pads dynamically once it
+        // demuxes/decodes, so link them as they appear.
+        let videorate_link = videorate.clone();
+        let audio_pace_link = audio_pace.clone();
+        _dbin_pad_added = Some(dbin.connect_pad_added(move |_dbin, pad| {
+            let name = pad.name();
+            if name.as_str().starts_with("video") {
+                if let Some(sink) = videorate_link.static_pad("sink") {
+                    if pad.link(&sink).is_err() {
+                        eprintln!("[filesrc] failed to link video pad {}", name);
+                    }
+                }
+            } else if name.as_str().starts_with("audio") {
+                if let Some(sink) = audio_pace_link.static_pad("sink") {
+                    if pad.link(&sink).is_err() {
+                        eprintln!("[filesrc] failed to link audio pad {}", name);
+                    }
+                }
+            }
+        }));
+        dbin_handle = Some(dbin);
+    } else {
+        let device = dsc.camera_device.as_deref().unwrap_or("/dev/video0");
+        source_title = detect_camera_name(device);
+        println!("Using camera: {} ({})", device, source_title);
+        let videosrc = gst::ElementFactory::make("v4l2src")
+            .name("videosrc")
+            .property("device", device)
+            .build()?;
+        pipeline.add(&videosrc)?;
+        videosrc.link(&videoconvert)?;
+    }
+
+    // Audio: the file's own audio in file mode, otherwise a tick source.
+    let audiotestsrc = if file_mode {
+        None
+    } else {
+        Some(
+            gst::ElementFactory::make("audiotestsrc")
+                .name("audiosrc")
+                .property("is-live", true)
+                .property_from_str("wave", "ticks")
+                .build()?,
+        )
+    };
+    let audiocaps = if audiotestsrc.is_some() {
+        Some(
+            gst::ElementFactory::make("capsfilter")
+                .name("audio-caps")
+                .property(
+                    "caps",
+                    gst::Caps::builder("audio/x-raw")
+                        .field("channels", 2i32)
+                        .field("rate", 48000i32)
+                        .build(),
+                )
+                .build()?,
+        )
+    } else {
+        None
+    };
+    if let (Some(at), Some(ac)) = (&audiotestsrc, &audiocaps) {
+        pipeline.add_many([at, ac])?;
+    }
 
     let whipsink = make_whip_sink(whip_endpoint)?;
 
@@ -347,7 +458,7 @@ fn run_with_encoder(
     dscsigner.set_property("enable-c2pa", true);
     dscsigner.set_property_from_str(
         "c2pa-manifest-json",
-        &build_manifest_json(dsc.demo_ai_filter, &camera_name),
+        &build_manifest_json(dsc.demo_ai_filter, &source_title),
     );
     dscsigner.set_property_from_str(
         "private-key-path",
@@ -407,8 +518,6 @@ fn run_with_encoder(
         ai_caps_handle = Some(ai_caps.clone());
 
         pipeline.add_many([
-            &videosrc,
-            &videoconvert,
             &tee,
             &queue_raw,
             &valve_raw,
@@ -425,14 +534,9 @@ fn run_with_encoder(
             &dsc_caps,
             &dscsigner,
             &seiinserter,
-            &audiotestsrc,
-            &audiocaps,
-            &audioresample,
-            &audioconvert,
             &whipsink,
         ])?;
 
-        videosrc.link(&videoconvert)?;
         videoconvert.link(&tee)?;
 
         // Raw branch (bypasses the anonymizer).
@@ -485,7 +589,7 @@ fn run_with_encoder(
             let mut c = controls.lock().unwrap();
             c.available = true;
             c.enabled = dsc.demo_ai_filter;
-            c.camera_name = camera_name.clone();
+            c.camera_name = source_title.clone();
             c.selector = Some(selector);
             c.selector_raw_pad = Some(selector_raw_pad);
             c.selector_ai_pad = Some(selector_ai_pad);
@@ -499,22 +603,15 @@ fn run_with_encoder(
         println!("WHIP source started with DSC signing (AI anonymizer available)");
     } else {
         pipeline.add_many([
-            &videosrc,
-            &videoconvert,
             &encoder,
             &enc_queue,
             &h265parse,
             &dsc_caps,
             &dscsigner,
             &seiinserter,
-            &audiotestsrc,
-            &audiocaps,
-            &audioresample,
-            &audioconvert,
             &whipsink,
         ])?;
 
-        videosrc.link(&videoconvert)?;
         gst::Element::link_many([
             &videoconvert,
             &encoder,
@@ -530,19 +627,19 @@ fn run_with_encoder(
             let mut c = controls.lock().unwrap();
             c.available = false;
             c.enabled = false;
-            c.camera_name = camera_name.clone();
+            c.camera_name = source_title.clone();
         }
 
         println!("WHIP source started with DSC signing");
     }
 
-    gst::Element::link_many([
-        &audiotestsrc,
-        &audiocaps,
-        &audioresample,
-        &audioconvert,
-        &whipsink,
-    ])?;
+    if let (Some(at), Some(ac)) = (&audiotestsrc, &audiocaps) {
+        gst::Element::link_many([at, ac, &audioresample, &audioconvert, &whipsink])?;
+    } else {
+        // File mode: the file's audio pad is linked via the pad-added handler
+        // above; just connect the audio conversion chain to the sink.
+        gst::Element::link_many([&audioresample, &audioconvert, &whipsink])?;
+    }
 
     pipeline.set_state(gst::State::Playing)?;
 
@@ -598,7 +695,21 @@ fn run_with_encoder(
     while running.load(Ordering::SeqCst) {
         if let Some(msg) = bus.timed_pop(gst::ClockTime::from_mseconds(500)) {
             match msg.view() {
-                gst::MessageView::Eos(..) => break,
+                gst::MessageView::Eos(..) => {
+                    if let Some(dbin) = &dbin_handle {
+                        eprintln!("[filesrc] EOS — looping back to start");
+                        if dbin
+                            .seek_simple(
+                                gst::SeekFlags::FLUSH | gst::SeekFlags::SEGMENT,
+                                gst::ClockTime::ZERO,
+                            )
+                            .is_ok()
+                        {
+                            continue;
+                        }
+                    }
+                    break;
+                }
                 gst::MessageView::Error(err) => {
                     eprintln!(
                         "Source error: {} ({})",

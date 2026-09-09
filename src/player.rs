@@ -61,10 +61,7 @@ fn extract_dsc_result(s: &gst::StructureRef) -> Option<DscVerificationResult> {
         c2pa_status: s.get::<String>("c2pa-status").unwrap_or_else(|_| "unknown".into()),
         manifest_title: s.get::<String>("c2pa-manifest-title").unwrap_or_default(),
         provenance: s.get::<String>("c2pa-provenance").unwrap_or_default(),
-        actions,
-        claim_generator: s.get::<String>("c2pa-claim-generator").unwrap_or_default(),
         signer: s.get::<String>("c2pa-signer").unwrap_or_default(),
-        digital_source_type,
         ai_modified,
     })
 }
