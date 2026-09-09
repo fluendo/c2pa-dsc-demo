@@ -12,6 +12,7 @@ pub struct DscConfig {
     pub hash_method: String,
     pub content_uuid: Option<String>,
     pub camera_device: Option<String>,
+    pub input_file: Option<String>,
     pub manifest_uri_template: Option<String>,
     pub public_key_uri: Option<String>,
     pub demo_ai_filter: bool,

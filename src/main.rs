@@ -60,13 +60,16 @@ struct Args {
     #[arg(long, default_value = "/dev/video0")]
     camera_device: String,
 
+    #[arg(long)]
+    input_file: Option<String>,
+
     #[arg(long, default_value = "/tmp/c2pa-certs")]
     certs_dir: PathBuf,
 
     #[arg(long, default_value = "config/c2pa_dsc_unified.cnf")]
     openssl_config: PathBuf,
 
-    #[arg(long, default_value = "3")]
+    #[arg(long, default_value = "30")]
     substream_length: u32,
 
     #[arg(long, default_value = "sha256")]
@@ -121,6 +124,7 @@ fn main() -> Result<()> {
             Some(uuid::Uuid::new_v4().simple().to_string())
         }),
         camera_device: Some(args.camera_device.clone()),
+        input_file: args.input_file.clone(),
         manifest_uri_template: None,
         public_key_uri: None,
         demo_ai_filter: args.demo_ai_filter,
