@@ -220,6 +220,7 @@ impl PlayerUi {
             .label(&format!("Player IP: {}\nWHEP Server: {}", local_ip, server_addr))
             .css_classes(["data-label"])
             .halign(gtk::Align::Start)
+            .wrap(true)
             .build();
 
         // Assemble right panel, vertically centered with expanding spacers
@@ -336,6 +337,7 @@ fn data_label(text: &str) -> gtk::Label {
         .label(text)
         .css_classes(["data-label"])
         .halign(gtk::Align::Start)
+        .wrap(true)
         .build()
 }
 
