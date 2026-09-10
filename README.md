@@ -1,5 +1,7 @@
 # C2PA-DSC Live Demo
 
+![App Demo](./assets/demo.gif)
+
 A Rust + GStreamer application demonstrating **Digitally Signed Content (DSC) with C2PA provenance** over WebRTC using WHIP/WHEP protocols. Live H.265 video is signed at the source, streamed through a server bridge, and verified at the player — all with real-time tamper detection.
 
 Three components can run on a single machine or distributed across multiple laptops:
