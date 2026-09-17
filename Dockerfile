@@ -62,9 +62,16 @@ FROM c2pa-dsc-base AS c2pa-dsc-live-demo
 
 WORKDIR /root/c2pa-dsc-live-demo
 
+# Bake dependencies in this layer for faster recompilations on changed files
+COPY Cargo.lock Cargo.toml ./
+RUN mkdir src \
+    && echo "fn main() {}" > src/main.rs \
+    && cargo build --release
+
 COPY . .
 
-RUN cargo build --release
+# Ensure host's file is newer than stub introduced above
+RUN touch src/main.rs && cargo build --release
 
 RUN mkdir -p /tmp/c2pa-certs \
     && openssl req -x509 -newkey rsa:2048 -nodes \
