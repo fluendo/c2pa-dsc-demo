@@ -14,11 +14,13 @@ services:
       --whep-server http://0.0.0.0:8191
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=${XAUTHORITY}
       - GDK_DEBUG=gl-disable
       - GSK_RENDERER=cairo
       - NO_AT_BRIDGE=1
       - GTK_A11Y=none
     volumes:
+      - ${XAUTHORITY}:${XAUTHORITY}:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp:/tmp:rw
 
@@ -37,11 +39,13 @@ services:
       --certs-dir ${CERTS_DIR:-/tmp/c2pa-certs}
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=${XAUTHORITY}
       - GDK_DEBUG=gl-disable
       - GSK_RENDERER=cairo
       - NO_AT_BRIDGE=1
       - GTK_A11Y=none
     volumes:
+      - ${XAUTHORITY}:${XAUTHORITY}:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp:/tmp:rw
       - /opt/fluendo/fluanonymizer:/opt/fluendo/fluanonymizer:ro
@@ -64,11 +68,13 @@ services:
       --whep-server http://${SERVER_IP:-127.0.0.1}:8191
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=${XAUTHORITY}
       - GDK_DEBUG=gl-disable
       - GSK_RENDERER=cairo
       - NO_AT_BRIDGE=1
       - GTK_A11Y=none
     volumes:
+      - ${XAUTHORITY}:${XAUTHORITY}:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp:/tmp:rw
     devices:

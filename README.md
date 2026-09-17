@@ -14,15 +14,14 @@ Three components can run on a single machine or distributed across multiple lapt
 
 ## Quick Start (Docker Compose)
 
-The fastest way to run the demo is with `docker compose`. Build the images once,
-then launch. GUI windows need the X server reachable — run `xhost +local:docker`
-once.
+The fastest way to run the demo is with `docker compose`:
 
 ```bash
-# Build the base image (GStreamer + DSC/WebRTC/GTK4 plugins) and the demo image
-docker build -f Dockerfile.base -t c2pa-dsc-base .
 docker compose build
+docker compose up
 ```
+
+If GUI services refuse to work, try running `xhost +local:docker` before launching the application.
 
 ### Single machine (all-in-one)
 

@@ -1,10 +1,77 @@
-FROM c2pa-dsc-base:latest
+FROM ubuntu:24.04 AS c2pa-dsc-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --fix-missing \
+    build-essential pkg-config git curl ca-certificates wget \
+    python3-pip gdb flex bison cmake nasm \
+    gettext libtool autoconf automake \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libgstreamer-plugins-good1.0-dev libgstreamer-plugins-bad1.0-dev \
+    libglib2.0-dev libssl-dev \
+    gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-x \
+    v4l-utils \
+    libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libswscale-dev \
+    libx264-dev libx265-dev libvpx-dev libopus-dev \
+    libsrtp2-dev libnice-dev \
+    libgtk-4-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED && pip3 install --upgrade meson ninja
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /root
+
+# GStreamer (branch h265-sei-dsc for DSC + C2PA support)
+RUN git clone --depth=1 --branch h265-sei-dsc \
+    https://gitlab.freedesktop.org/diegonieto/gstreamer.git gstreamer \
+    && cd gstreamer \
+    && meson setup build --prefix=/usr/local --buildtype=release \
+        -Dgpl=enabled \
+        -Dgst-plugins-bad:videoparsers=enabled \
+        -Dgst-plugins-bad:x265=enabled \
+        -Dgst-plugins-bad:va=disabled \
+        -Dgstreamer:tools=enabled -Dlibav=enabled \
+        -Dgst-plugins-bad:nvcodec=disabled \
+        --wrap-mode=nofallback \
+    && ninja -C build && ninja -C build install && ldconfig
+
+
+# GStreamer Rust plugins (branch dsc-upstream-c2pa: dscsigner, dscverifier, webrtc)
+RUN git clone --depth=1 --branch dsc-upstream-c2pa \
+    https://gitlab.freedesktop.org/diegonieto/gst-plugins-rs.git gst-plugins-rs \
+    && cd gst-plugins-rs \
+    && sed -i '/"utils\/tracers"/d' Cargo.toml \
+    && cargo update -p pkg-config --precise 0.3.34 \
+    && cargo update -p c2pa --precise 0.89.3 \
+    && cargo build --release -p gst-plugin-dsc -p gst-plugin-webrtc -p gst-plugin-gtk4 \
+    && cp target/release/libgstdsc.so /usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/ \
+    && cp target/release/libgstrswebrtc.so /usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/ \
+    && cp target/release/libgstgtk4.so /usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/
+
+ENV GST_PLUGIN_PATH="/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0"
+ENV LD_LIBRARY_PATH="/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+ENV PKG_CONFIG_PATH="/usr/local/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH}"
+
+
+
+FROM c2pa-dsc-base AS c2pa-dsc-live-demo
 
 WORKDIR /root/c2pa-dsc-live-demo
 
+# Bake dependencies in this layer for faster recompilations on changed files
+COPY Cargo.lock Cargo.toml ./
+RUN mkdir src \
+    && echo "fn main() {}" > src/main.rs \
+    && cargo build --release
+
 COPY . .
 
-RUN cargo build --release
+# Ensure host's file is newer than stub introduced above
+RUN touch src/main.rs && cargo build --release
 
 RUN mkdir -p /tmp/c2pa-certs \
     && openssl req -x509 -newkey rsa:2048 -nodes \
