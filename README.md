@@ -19,9 +19,8 @@ then launch. GUI windows need the X server reachable — run `xhost +local:docke
 once.
 
 ```bash
-# Build the base image (GStreamer + DSC/WebRTC/GTK4 plugins) and the demo image
-docker build -f Dockerfile.base -t c2pa-dsc-base .
 docker compose build
+docker compose up
 ```
 
 ### Single machine (all-in-one)
