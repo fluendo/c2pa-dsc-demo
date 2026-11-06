@@ -41,7 +41,7 @@ RUN git clone --depth=1 --branch h265-sei-dsc \
 
 
 # GStreamer Rust plugins (branch dsc-upstream-c2pa: dscsigner, dscverifier, webrtc)
-RUN git clone --depth=1 --branch dsc-upstream-c2pa \
+RUN git clone --depth=1 --branch dsc-upstream-c2pa-demo \
     https://gitlab.freedesktop.org/diegonieto/gst-plugins-rs.git gst-plugins-rs \
     && cd gst-plugins-rs \
     && sed -i '/"utils\/tracers"/d' Cargo.toml \
