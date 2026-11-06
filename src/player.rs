@@ -242,7 +242,7 @@ pub fn run_gtk(app: &gtk::Application, whep_endpoint: &str, dsc: &DscConfig) -> 
     use gtk::prelude::*;
 
     let window = gtk::ApplicationWindow::new(app);
-    window.set_title(Some("C2PA-DSC — WebRTC Broadcasting Showcase"));
+    window.set_title(Some("JPEG-DSC — WebRTC Broadcasting Showcase"));
     window.set_default_size(1400, 900);
 
     let player_ui = PlayerUi::new(1400, 900, whep_endpoint);

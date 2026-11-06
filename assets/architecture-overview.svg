@@ -11,7 +11,7 @@
   <rect x="0" y="0" width="600" height="660" fill="#ffffff"/>
 
   <text x="300" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#1f2937">
-    C2PA + DSC WebRTC demo architecture
+    JPEG Trust + DSC WebRTC demo architecture
   </text>
 
   <!-- ============ LAPTOP GROUPINGS (light / near transparent) ============ -->
