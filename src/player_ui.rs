@@ -76,7 +76,7 @@ impl PlayerUi {
             header.append(&logo);
         }
         let title = gtk::Label::builder()
-            .label("C2PA-DSC — WebRTC Broadcasting Showcase")
+            .label("JPEG-DSC — WebRTC Broadcasting Showcase")
             .css_classes(["header-title"])
             .build();
         header.append(&title);
@@ -120,7 +120,7 @@ impl PlayerUi {
             .build();
 
         let demo_desc = gtk::Label::builder()
-            .label("Live C2PA + DSC provenance demo: the camera feed is signed at the source, published over WHIP, relayed by the server, and delivered to this player over WHEP with real-time verification.")
+            .label("Live JPEG Trust + DSC provenance demo: the camera feed is signed at the source, published over WHIP, relayed by the server, and delivered to this player over WHEP with real-time verification.")
             .css_classes(["demo-desc"])
             .halign(gtk::Align::Center)
             .hexpand(true)
@@ -179,17 +179,17 @@ impl PlayerUi {
             .css_classes(["status-text"])
             .halign(gtk::Align::Start)
             .build();
-        let dsc_box = status_box(&dsc_texture, "status-wait", &dsc_status);
+        let dsc_box = status_box(&dsc_texture, "status-wait", &dsc_status, 32);
 
         // C2PA section
-        let sec_c2pa = section_label("C2PA");
-        let c2pa_texture = icon_texture("assets/c2pa.jpg");
+        let sec_c2pa = section_label("JPEG Trust");
+        let c2pa_texture = icon_texture("assets/jpegtrust-icon.svg");
         let c2pa_status = gtk::Label::builder()
-            .label("C2PA: Waiting…")
+            .label("JPEG Trust: Waiting…")
             .css_classes(["status-text"])
             .halign(gtk::Align::Start)
             .build();
-        let c2pa_box = status_box(&c2pa_texture, "status-wait", &c2pa_status);
+        let c2pa_box = status_box(&c2pa_texture, "status-wait", &c2pa_status, 32);
 
         let ai_status_text = gtk::Label::builder()
             .label("AI modification detected")
@@ -291,7 +291,7 @@ impl PlayerUi {
             "status-fail"
         };
         self.c2pa_box.set_css_classes(&[c2pa_class, "status-box"]);
-        self.c2pa_status.set_label(&format!("C2PA: {}", status_text(&result.c2pa_status)));
+        self.c2pa_status.set_label(&format!("JPEG Trust: {}", status_text(&result.c2pa_status)));
 
         // AI modification row (only when the c2pa.edited assertion is present)
         self.ai_status.set_visible(result.ai_modified);
@@ -347,10 +347,10 @@ fn section_label(text: &str) -> gtk::Label {
         .build()
 }
 
-fn status_box(texture: &gdk::Texture, class: &str, text: &gtk::Label) -> gtk::Box {
+fn status_box(texture: &gdk::Texture, class: &str, text: &gtk::Label, icon_size: i32) -> gtk::Box {
     let picture = gtk::Picture::for_paintable(texture);
     picture.set_can_shrink(true);
-    picture.set_size_request(24, 24);
+    picture.set_size_request(icon_size, icon_size);
     let boxx = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     boxx.add_css_class(class);
     boxx.add_css_class("status-box");
@@ -362,7 +362,7 @@ fn status_box(texture: &gdk::Texture, class: &str, text: &gtk::Label) -> gtk::Bo
 #[cfg(feature = "gtk4")]
 fn icon_texture(path: &str) -> gdk::Texture {
     gdk::Texture::from_filename(path)
-        .unwrap_or_else(|_| gdk::Texture::from_filename("assets/c2pa.jpg")
+        .unwrap_or_else(|_| gdk::Texture::from_filename("assets/jpegtrust-icon.svg")
             .unwrap_or_else(|_| {
                 eprintln!("Warning: no icon assets found, using blank texture");
                 let bytes = glib::Bytes::from_owned(vec![128u8; 48 * 48 * 4]);
