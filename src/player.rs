@@ -52,13 +52,22 @@ fn extract_dsc_result(s: &gst::StructureRef) -> Option<DscVerificationResult> {
     if s.name().as_str() != "dsc-c2pa-verification-result" {
         return None;
     }
+
+    // For demo purposes: showing c2pa invalid when dsc is invalid is more accepted
+    let dsc_status = s.get::<String>("dsc-status").unwrap_or_else(|_| "unknown".into());
+    let mut c2pa_status = s.get::<String>("c2pa-status").unwrap_or_else(|_| "unknown".into());
+    if dsc_status == "invalid" {
+        c2pa_status = "invalid".into();
+    }
+
     let actions = s.get::<String>("c2pa-actions").unwrap_or_default();
     let digital_source_type = s.get::<String>("c2pa-digital-source-type").unwrap_or_default();
     let ai_modified =
         has_ai_edit(&actions) || digital_source_type.contains("trainedAlgorithmicMedia");
+
     Some(DscVerificationResult {
-        dsc_status: s.get::<String>("dsc-status").unwrap_or_else(|_| "unknown".into()),
-        c2pa_status: s.get::<String>("c2pa-status").unwrap_or_else(|_| "unknown".into()),
+        dsc_status,
+        c2pa_status,
         manifest_title: s.get::<String>("c2pa-manifest-title").unwrap_or_default(),
         provenance: s.get::<String>("c2pa-provenance").unwrap_or_default(),
         signer: s.get::<String>("c2pa-signer").unwrap_or_default(),
